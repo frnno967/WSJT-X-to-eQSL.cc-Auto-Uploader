@@ -15,10 +15,9 @@ WSJT-X to eQSL.cc Auto-Uploader is a Python-based tool that automatically listen
 
 - **Automatic QSO Upload**: Automatically uploads contacts to eQSL.cc as they are logged in WSJT-X
 - **Real-time Monitoring**: Live display of contact information including callsign, mode, band, frequency, grid square, RST reports, and comments
-- **Contact History**: View your last 10 contacts in the recent contacts list
+- **Contact History**: View your last contacts in the recent contacts list
 - **Configuration Management**: Save your eQSL.cc credentials and settings for automatic login
-- **Manual Mode Option**: Disable auto-upload to review contacts before uploading
-- **Time Display**: Shows both UTC and local time/date for logging accuracy
+- **Time Display**: Shows both UTC and Local time/date for logging accuracy
 - **Upload Statistics**: Track total QSOs logged and upload status
 - **Error Handling**: Retry failed uploads with interactive error dialogs
 
@@ -26,7 +25,7 @@ WSJT-X to eQSL.cc Auto-Uploader is a Python-based tool that automatically listen
 
 - Python 3.6 or higher
 - Linux operating system (tested on Ubuntu)
-- Terminal window with minimum size of 60x20 characters (80x24 recommended)
+- Terminal window with minimum size of 60x20 characters (80x24 or larger recommended)
 - Active internet connection for eQSL.cc uploads
 - WSJT-X configured to broadcast logged ADIF data via UDP
 
@@ -35,7 +34,7 @@ WSJT-X to eQSL.cc Auto-Uploader is a Python-based tool that automatically listen
 The following Python packages are required:
 
 ```bash
-pip install requests --break-system-packages
+pip install requests
 ```
 
 Standard library modules used (no installation needed):
@@ -55,14 +54,14 @@ Standard library modules used (no installation needed):
 
 ## Installation
 
-1. Download the `wsjt-eqsl-fixed.py` file
+1. Download the `wsjtx2eqsl.py` file
 2. Make the script executable:
    ```bash
-   chmod +x wsjt-eqsl-fixed.py
+   chmod +x wsjtx2eqsl.py
    ```
 3. Install required dependencies:
    ```bash
-   pip install requests --break-system-packages
+   pip install requests
    ```
 
 ## WSJT-X Configuration
@@ -82,11 +81,11 @@ Before using this program, you need to configure WSJT-X to broadcast logged ADIF
 
 1. Run the program:
    ```bash
-   python3 wsjt-eqsl-fixed.py
+   python3 wsjtx2eqsl.py
    ```
    or
    ```bash
-   ./wsjt-eqsl-fixed.py
+   ./wsjtx2eqsl.py
    ```
 
 2. You will be prompted to enter:
@@ -96,7 +95,7 @@ Before using this program, you need to configure WSJT-X to broadcast logged ADIF
    - **UDP port** (default: 2333)
    - **Save configuration** (y/n)
 
-3. If you choose to save your configuration, your credentials will be stored in `~/.wsjt-eqsl.conf` (permissions set to 600 for security)
+3. If you choose to save your configuration, your credentials will be stored in `~/.wsjtx2eqsl.conf` (permissions set to 600 for security)
 
 ### Running the Program
 
@@ -108,7 +107,7 @@ Once configured, the program will:
    - **STATUS** panel: Connection status, username, auto-upload setting, QSO count, and upload status
    - **TIME & DATE** panel: UTC and local time/date information
    - **LAST CONTACT** panel: Detailed information about the most recent QSO
-   - **RECENT CONTACTS** panel: List of the last 10 contacts
+   - **RECENT CONTACTS** panel: List of the last contacts
 
 ### Keyboard Commands
 
@@ -169,7 +168,7 @@ Shows a scrolling list of your last 10 contacts with:
 
 ## Log File
 
-All activity is logged to `wsjt-eqsl.log` in the same directory as the script. This includes:
+All activity is logged to `wsjtx2eqsl.log` in the same directory as the script. This includes:
 - Program start/stop events
 - QSO logging events
 - Upload successes and failures
@@ -186,10 +185,10 @@ All activity is logged to `wsjt-eqsl.log` in the same directory as the script. T
 - Check your internet connection
 - Review the error message displayed
 - Press **R** when prompted to retry the upload
-- Check `wsjt-eqsl.log` for detailed error information
+- Check `wsjtx2eqsl.log` for detailed error information
 
 ### Terminal display issues
-- Ensure your terminal is at least 60x20 characters (80x24 recommended)
+- Ensure your terminal is at least 60x20 characters (80x24 or larger recommended)
 - Some terminal emulators may not display box-drawing characters correctly
 - Try using a different terminal emulator if display issues persist
 
@@ -198,12 +197,12 @@ The configuration file is stored at: `~/.wsjt-eqsl.conf`
 
 To manually remove it:
 ```bash
-rm ~/.wsjt-eqsl.conf
+rm ~/.wsjtx2eqsl.conf
 ```
 
 ## Security Notes
 
-- Your eQSL.cc password is stored in plain text in `~/.wsjt-eqsl.conf`
+- Your eQSL.cc password is stored in plain text in `~/.wsjtx2eqsl.conf`
 - The file permissions are set to 600 (read/write for owner only)
 - Keep this configuration file secure
 - Do not share your configuration file with others
@@ -215,18 +214,15 @@ If you disable auto-upload (set to OFF), the program will:
 - Still receive and display contacts from WSJT-X
 - Log all QSOs to the log file
 - NOT automatically upload to eQSL.cc
-- Display "Manual mode" as the upload status
 
 This is useful for:
 - Testing the program
-- Reviewing contacts before uploading
-- Operating without an internet connection
 
 ## Tips for Best Results
 
-1. **Terminal Size**: Use at least an 80x24 terminal for the best display experience
+1. **Terminal Size**: Use at least an 80x24 ANSI terminal for the best display experience
 2. **Run in Background**: Consider running in a terminal multiplexer (tmux/screen) so you can keep it running while operating
-3. **Monitor Log File**: Check `wsjt-eqsl.log` periodically for any issues
+3. **Monitor Log File**: Check `wsjtx2eqsl.log` periodically for any issues
 4. **Auto-upload**: Enable auto-upload for hands-free eQSL logging
 5. **Backup Credentials**: Remember your eQSL.cc password in case you need to reconfigure
 
@@ -262,4 +258,4 @@ Copyright 2025 John A. Crutti, Jr. (K5JCJ)
 
 ---
 
-**73 and happy contesting!**
+**73 and see you on the bands!**
