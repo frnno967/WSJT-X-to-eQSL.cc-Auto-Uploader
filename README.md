@@ -176,7 +176,7 @@ All activity is logged to `wsjtx2eqsl.log` in the same directory as the script. 
 ## Troubleshooting
 
 ### No contacts appearing
-- Verify WSJT-X is configured to broadcast logged ADIF (see WSJT-X Configuration above)
+- Verify WSJT-X has 'Enable logged contact ADIF broadcast' under Secondary UDP Server checked
 - Check that the UDP port matches between WSJT-X and this program
 - Ensure WSJT-X is actually logging contacts (QSO must be logged, not just decoded)
 
@@ -193,7 +193,7 @@ All activity is logged to `wsjtx2eqsl.log` in the same directory as the script. 
 - Try using a different terminal emulator if display issues persist
 
 ### Configuration file location
-The configuration file is stored at: `~/.wsjt-eqsl.conf`
+The configuration file is stored at: `~/.wsjtx2eqsl.conf`
 
 To manually remove it:
 ```bash
@@ -208,7 +208,7 @@ rm ~/.wsjtx2eqsl.conf
 - Do not share your configuration file with others
 - Consider using a unique password for eQSL.cc
 
-## Manual Mode
+## Testing Mode
 
 If you disable auto-upload (set to OFF), the program will:
 - Still receive and display contacts from WSJT-X
