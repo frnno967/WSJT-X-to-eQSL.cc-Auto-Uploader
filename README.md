@@ -7,6 +7,8 @@
 
 ---
 
+<img width="803" height="462" alt="image" src="https://github.com/user-attachments/assets/a7a0c83e-d2b8-4e3f-85f8-48abe0e6f250" />
+
 ## Overview
 
 WSJT-X to eQSL.cc Auto-Uploader is a Python-based tool that automatically listens for WSJT-X logged ADIF broadcasts over UDP and uploads them to your eQSL.cc account in real-time. The program features a clean, terminal-based user interface that displays contact information, statistics, and upload status.
