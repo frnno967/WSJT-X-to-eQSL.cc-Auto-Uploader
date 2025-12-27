@@ -546,9 +546,9 @@ def draw_status_screen(username):
         print(f"\033[3;{col1_start + 6}H\033[1mUTC\033[0m", end='')
         print(f"\033[3;{col2_start + 6}H\033[1mLOCAL\033[0m", end='')
         
-        # Row 2: UTC Time and Local Time
-        print(f"\033[4;{col1_start}HUTC Time: \033[36m{utc_now.strftime('%H:%M:%S')}\033[0m", end='')
-        print(f"\033[4;{col2_start}HTime: \033[33m{local_now.strftime('%H:%M:%S')}\033[0m", end='')
+        # Row 2: UTC Time and Local Time (hours and minutes only)
+        print(f"\033[4;{col1_start}HUTC Time: \033[36m{utc_now.strftime('%H:%M')}\033[0m", end='')
+        print(f"\033[4;{col2_start}HTime: \033[33m{local_now.strftime('%H:%M')}\033[0m", end='')
         
         # Row 3: UTC Date and Local Date
         print(f"\033[5;{col1_start}HUTC Date: \033[36m{utc_now.strftime('%Y-%m-%d')}\033[0m", end='')
