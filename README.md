@@ -7,21 +7,23 @@
 
 ---
 
-<img width="803" height="462" alt="image" src="https://github.com/user-attachments/assets/a7a0c83e-d2b8-4e3f-85f8-48abe0e6f250" />
+<img width="805" height="461" alt="image" src="https://github.com/user-attachments/assets/043bac61-fb9c-4282-be0e-b70173dd9a94" />
+
 
 ## Overview
 
-WSJT-X to eQSL.cc Auto-Uploader is a Python-based tool that automatically listens for WSJT-X logged ADIF broadcasts over UDP and uploads them to your eQSL.cc account in real-time. The program features a clean, terminal-based user interface that displays contact information, statistics, and upload status.
+WSJT-X to eQSL.cc Auto-Uploader is a Python-based tool that automatically listens for WSJT-X logged network ADIF broadcasts over UDP and uploads them to your eQSL.cc account in real-time. The program features a clean, terminal-based user interface that displays contact information, statistics, and upload status.
 
 ## Features
 
-- **Automatic QSO Upload**: Automatically uploads contacts to eQSL.cc as they are logged in WSJT-X
+- **Automatic QSO Upload**: Automatically uploads contacts to eQSL.cc as they are logged in WSJT-X from anywhere on your local network
 - **Real-time Monitoring**: Live display of contact information including callsign, mode, band, frequency, grid square, RST reports, and comments
 - **Contact History**: View your last contacts in the recent contacts list
 - **Configuration Management**: Save your eQSL.cc credentials and settings for automatic login
 - **Time Display**: Shows both UTC and Local time/date for logging accuracy
 - **Upload Statistics**: Track total QSOs logged and upload status
 - **Error Handling**: Retry failed uploads with interactive error dialogs
+- **Debug Mode**: Extensive logging of debug information if needed
 
 ## Requirements
 
@@ -126,8 +128,9 @@ Press **C** to access the configuration menu with these options:
 2. **Change credentials** - Update your eQSL.cc username and password
 3. **Toggle auto-upload** - Enable/disable automatic uploading to eQSL.cc
 4. **Change UDP port** - Modify the UDP port for WSJT-X broadcasts
-5. **Delete saved configuration** - Remove stored credentials
-6. **Return to monitoring** - Go back to the main screen
+5. **Toggle debug logging** - Save comprehensive debug information to log file
+6. **Delete saved configuration** - Remove stored credentials
+7. **Return to monitoring** - Go back to the main screen
 
 **Note:** Changes to credentials, auto-upload, or UDP port require restarting the program to take effect.
 
@@ -170,7 +173,7 @@ Shows a scrolling list of your last 10 contacts with:
 
 ## Log File
 
-All activity is logged to `wsjtx2eqsl.log` in the same directory as the script. This includes:
+All activity is logged to `wsjtx2eqsl.log` in the user's home directory. This includes:
 - Program start/stop events
 - QSO logging events
 - Upload successes and failures
