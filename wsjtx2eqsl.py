@@ -20,11 +20,11 @@ from datetime import datetime
 from getpass import getpass
 
 # Version
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 # Configuration
 UDP_PORT = 2333
-LOG_FILE = "wsjtx2eqsl.log"
+LOG_FILE = os.path.expanduser("~/wsjtx2eqsl.log")
 CONFIG_FILE = os.path.expanduser("~/.wsjtx2eqsl.conf")
 
 # Global state
@@ -128,6 +128,20 @@ def parse_all_adif(adif_text):
         fields[field_name] = value
     return fields
 
+def format_frequency(freq_str):
+    """Format frequency to 7 characters (including decimal) with space and MHz suffix"""
+    if not freq_str:
+        return 'N/A'
+    
+    # Keep numeric characters and decimal point
+    freq_clean = ''.join(c for c in freq_str if c.isdigit() or c == '.')
+    
+    # Limit to 7 characters (including decimal point)
+    freq_clean = freq_clean[:7]
+    
+    # Add space and MHz
+    return f"{freq_clean} MHz" if freq_clean else 'N/A'
+
 def upload_to_eqsl(adif_data, username, password):
     """Upload ADIF data to eQSL.cc"""
     global upload_status
@@ -209,8 +223,14 @@ def show_upload_error(error_msg, adif_data, username, password):
 
 def log_message(message):
     """Log message to file"""
-    with open(LOG_FILE, 'a') as f:
-        f.write(f"{datetime.utcnow()}: {message}\n")
+    try:
+        with open(LOG_FILE, 'a') as f:
+            f.write(f"{datetime.utcnow()}: {message}\n")
+            f.flush()  # Force write to disk
+    except Exception as e:
+        # If logging fails, don't crash the program
+        # Could optionally print to stderr for debugging
+        pass
 
 def manage_credentials():
     """Interactive menu to manage saved credentials"""
@@ -422,17 +442,21 @@ def draw_status_screen(username, auto_upload):
         col1_start = time_box_x + 2
         col2_start = time_box_x + 23  # Fixed position for column 2
         
-        # Row 1: UTC Time and Local Time
-        print(f"\033[3;{col1_start}HUTC Time: \033[36m{utc_now.strftime('%H:%M:%S')}\033[0m", end='')
-        print(f"\033[3;{col2_start}HTime: \033[33m{local_now.strftime('%H:%M:%S')}\033[0m", end='')
+        # Row 1: Column Headers (centered - offset by 6 spaces)
+        print(f"\033[3;{col1_start + 6}H\033[1mUTC\033[0m", end='')
+        print(f"\033[3;{col2_start + 6}H\033[1mLOCAL\033[0m", end='')
         
-        # Row 2: UTC Date and Local Date
-        print(f"\033[4;{col1_start}HUTC Date: \033[36m{utc_now.strftime('%Y-%m-%d')}\033[0m", end='')
-        print(f"\033[4;{col2_start}HDate: \033[33m{local_now.strftime('%Y-%m-%d')}\033[0m", end='')
+        # Row 2: UTC Time and Local Time
+        print(f"\033[4;{col1_start}HUTC Time: \033[36m{utc_now.strftime('%H:%M:%S')}\033[0m", end='')
+        print(f"\033[4;{col2_start}HTime: \033[33m{local_now.strftime('%H:%M:%S')}\033[0m", end='')
         
-        # Row 3: UTC Day and Local Day
-        print(f"\033[5;{col1_start}HUTC Day:  \033[36m{utc_now.strftime('%A')}\033[0m", end='')
-        print(f"\033[5;{col2_start}HDay:  \033[33m{local_now.strftime('%A')}\033[0m", end='')
+        # Row 3: UTC Date and Local Date
+        print(f"\033[5;{col1_start}HUTC Date: \033[36m{utc_now.strftime('%Y-%m-%d')}\033[0m", end='')
+        print(f"\033[5;{col2_start}HDate: \033[33m{local_now.strftime('%Y-%m-%d')}\033[0m", end='')
+        
+        # Row 4: UTC Day and Local Day
+        print(f"\033[6;{col1_start}HUTC Day:  \033[36m{utc_now.strftime('%A')}\033[0m", end='')
+        print(f"\033[6;{col2_start}HDay:  \033[33m{local_now.strftime('%A')}\033[0m", end='')
         
         # Last contact box (full width) - starts at row 8 (no blank line)
         last_contact_height = 6  # Fixed height: title + 4 content rows + bottom border
@@ -456,7 +480,7 @@ def draw_status_screen(username, auto_upload):
                 
                 # Row 1: Callsign, Mode, Band
                 if current_row < max_row:
-                    print(f"\033[{current_row};3H Callsign: \033[33m{last_contact['call']}\033[0m", end='')
+                    print(f"\033[{current_row};2H Callsign: \033[33m{last_contact['call']}\033[0m", end='')
                     
                     mode_text = f"Mode:     \033[33m{last_contact['mode']}\033[0m"
                     if col2_pos < max_x:
@@ -469,10 +493,11 @@ def draw_status_screen(username, auto_upload):
                 
                 # Row 2: Grid, Freq, Date
                 if current_row < max_row:
-                    print(f"\033[{current_row};3H Grid:     \033[33m{last_contact['grid'] or 'N/A'}\033[0m", end='')
+                    print(f"\033[{current_row};2H Grid:     \033[33m{last_contact['grid'] or 'N/A'}\033[0m", end='')
                     
                     if last_contact['freq'] and col2_pos < max_x:
-                        freq_text = f"Freq:     \033[33m{last_contact['freq']}MHz\033[0m"
+                        freq_formatted = format_frequency(last_contact['freq'])
+                        freq_text = f"Freq:     \033[33m{freq_formatted}\033[0m"
                         print(f"\033[{current_row};{col2_pos}H{freq_text[:col3_pos-col2_pos-1]}", end='')
                     
                     # Date in third column
@@ -484,7 +509,7 @@ def draw_status_screen(username, auto_upload):
                 # Row 3: RST Sent, RST Rcvd, Time
                 if current_row < max_row:
                     if last_contact['rst_sent']:
-                        print(f"\033[{current_row};3H \033[97mRST Sent:\033[0m \033[33m{last_contact['rst_sent']}\033[0m", end='')
+                        print(f"\033[{current_row};2H \033[97mRST Sent:\033[0m \033[33m{last_contact['rst_sent']}\033[0m", end='')
                     
                     if last_contact['rst_rcvd'] and col2_pos < max_x:
                         rst_r_text = f"RST Rcvd: \033[33m{last_contact['rst_rcvd']}\033[0m"
@@ -499,7 +524,7 @@ def draw_status_screen(username, auto_upload):
                 # Row 4: Logged, Comment
                 if current_row < max_row:
                     ts = last_contact['timestamp'].strftime('%H:%M:%S UTC')
-                    print(f"\033[{current_row};3H \033[97mLogged:\033[0m   \033[36m{ts}\033[0m", end='')
+                    print(f"\033[{current_row};2H \033[97mLogged:\033[0m   \033[36m{ts}\033[0m", end='')
                     
                     # Comment in second and third columns
                     if last_contact.get('comment') and col2_pos < max_x:
@@ -508,18 +533,19 @@ def draw_status_screen(username, auto_upload):
                     current_row += 1
             else:
                 # Narrow layout - stacked
-                print(f"\033[13;3H Call: \033[33m{last_contact['call']}\033[0m  Mode: \033[33m{last_contact['mode']}\033[0m  Band: \033[33m{last_contact['band']}\033[0m", end='')
-                print(f"\033[14;3H Grid: \033[33m{last_contact['grid'] or 'N/A'}\033[0m", end='')
+                print(f"\033[13;2H Call: \033[33m{last_contact['call']}\033[0m  Mode: \033[33m{last_contact['mode']}\033[0m  Band: \033[33m{last_contact['band']}\033[0m", end='')
+                print(f"\033[14;2H Grid: \033[33m{last_contact['grid'] or 'N/A'}\033[0m", end='')
                 if last_contact['freq']:
-                    print(f"  Freq: \033[33m{last_contact['freq']}\033[0m", end='')
+                    freq_formatted = format_frequency(last_contact['freq'])
+                    print(f"  Freq: \033[33m{freq_formatted}\033[0m", end='')
                 
                 line = 15
                 if last_contact['rst_sent'] or last_contact['rst_rcvd']:
-                    print(f"\033[{line};3H RST: \033[33m{last_contact['rst_sent'] or 'N/A'}/{last_contact['rst_rcvd'] or 'N/A'}\033[0m", end='')
+                    print(f"\033[{line};2H RST: \033[33m{last_contact['rst_sent'] or 'N/A'}/{last_contact['rst_rcvd'] or 'N/A'}\033[0m", end='')
                     line += 1
                 
                 ts = last_contact['timestamp'].strftime('%H:%M:%S UTC')
-                print(f"\033[{line};3H Logged: \033[36m{ts}\033[0m", end='')
+                print(f"\033[{line};2H Logged: \033[36m{ts}\033[0m", end='')
                 line += 1
                 
                 # Display comment if present
@@ -542,13 +568,13 @@ def draw_status_screen(username, auto_upload):
             header_y = recent_y + 1
             if width >= 100:
                 # Wide layout with comments
-                print(f"\033[{header_y};3H \033[1mCall     Mode  Band   Grid   RST   Time    Comment\033[0m", end='')
+                print(f"\033[{header_y};2H \033[1mCall       Mode  Band   Grid   RST   Time    Comment\033[0m", end='')
             elif width >= 70:
                 # Medium layout with comments
-                print(f"\033[{header_y};3H \033[1mCall     Mode  Band   Grid   RST   Time    Comment\033[0m", end='')
+                print(f"\033[{header_y};2H \033[1mCall       Mode  Band   Grid   RST   Time    Comment\033[0m", end='')
             else:
                 # Narrow layout without comments
-                print(f"\033[{header_y};3H \033[1mCall     Mode  Band   Time\033[0m", end='')
+                print(f"\033[{header_y};2H \033[1mCall       Mode  Band   Time\033[0m", end='')
             
             # Contacts (as many as fit)
             max_contacts = min(10, recent_height - 3)
@@ -564,16 +590,16 @@ def draw_status_screen(username, auto_upload):
                     grid = (contact['grid'] or 'N/A')[:6].ljust(6)
                     rst = (contact['rst_rcvd'] or 'N/A')[:5].ljust(5)
                     comment = (contact.get('comment') or '')[:width-55]
-                    print(f"\033[{y};3H \033[33m{call}\033[0m {mode} {band} {grid} {rst} {time_str}  \033[32m{comment}\033[0m", end='')
+                    print(f"\033[{y};2H \033[33m{call}\033[0m   {mode} {band} {grid} {rst} {time_str}  \033[32m{comment}\033[0m", end='')
                 elif width >= 70:
                     # Medium layout with comments
                     grid = (contact['grid'] or 'N/A')[:6].ljust(6)
                     rst = (contact['rst_rcvd'] or 'N/A')[:5].ljust(5)
                     comment = (contact.get('comment') or '')[:width-50]
-                    print(f"\033[{y};3H \033[33m{call}\033[0m {mode} {band} {grid} {rst} {time_str}  \033[32m{comment}\033[0m", end='')
+                    print(f"\033[{y};2H \033[33m{call}\033[0m   {mode} {band} {grid} {rst} {time_str}  \033[32m{comment}\033[0m", end='')
                 else:
                     # Narrow layout without comments
-                    print(f"\033[{y};3H \033[33m{call}\033[0m {mode} {band} {time_str}", end='')
+                    print(f"\033[{y};2H \033[33m{call}\033[0m   {mode} {band} {time_str}", end='')
         
         # Footer (full width)
         footer_y = height
@@ -666,7 +692,7 @@ def main():
     
     print("\033[2J\033[1;1H")
     print("\033[36m╔════════════════════════════════════════════════╗\033[0m")
-    print("\033[36m║  WSJT-X to eQSL.cc Auto-Uploader v1.0.0        ║\033[0m")
+    print(f"\033[36m║  WSJT-X to eQSL.cc Auto-Uploader v{VERSION}        ║\033[0m")
     print("\033[36m║  Copyright 2025 John A. Crutti, Jr. K5JCJ      ║\033[0m")
     print("\033[36m║  www.jaycrutti.com                             ║\033[0m")
     print("\033[36m║  Comments? recstudio@gmail.com                 ║\033[0m")
