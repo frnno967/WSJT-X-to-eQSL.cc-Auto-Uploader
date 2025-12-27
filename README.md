@@ -1,6 +1,6 @@
 # WSJT-X to eQSL.cc Auto-Uploader
 
-**Version 1.0.0**  
+**Version 1.1.0**  
 **Author:** John A. Crutti, Jr. (K5JCJ)  
 **Website:** www.jaycrutti.com  
 **Contact:** recstudio@gmail.com
