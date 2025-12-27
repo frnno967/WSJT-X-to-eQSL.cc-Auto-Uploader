@@ -668,10 +668,10 @@ def draw_status_screen(username):
             header_y = recent_y + 1
             if width >= 100:
                 # Wide layout with comments
-                print(f"\033[{header_y};2H \033[1mCall       Mode  Band   Grid   RST   Time    Comment\033[0m", end='')
+                print(f"\033[{header_y};2H \033[1mCall       Mode  Band   Grid    RST  Time    Comment\033[0m", end='')
             elif width >= 70:
                 # Medium layout with comments
-                print(f"\033[{header_y};2H \033[1mCall       Mode  Band   Grid   RST   Time    Comment\033[0m", end='')
+                print(f"\033[{header_y};2H \033[1mCall       Mode  Band   Grid    RST  Time    Comment\033[0m", end='')
             else:
                 # Narrow layout without comments
                 print(f"\033[{header_y};2H \033[1mCall       Mode  Band   Time\033[0m", end='')
@@ -690,13 +690,13 @@ def draw_status_screen(username):
                     grid = (contact['grid'] or 'N/A')[:6].ljust(6)
                     rst = (contact['rst_rcvd'] or 'N/A')[:5].ljust(5)
                     comment = (contact.get('comment') or '')[:width-55]
-                    print(f"\033[{y};2H \033[33m{call}\033[0m   {mode} {band} {grid} {rst} {time_str}  \033[32m{comment}\033[0m", end='')
+                    print(f"\033[{y};2H \033[33m{call}\033[0m   {mode} {band} {grid}  {rst}{time_str}  \033[32m{comment}\033[0m", end='')
                 elif width >= 70:
                     # Medium layout with comments
                     grid = (contact['grid'] or 'N/A')[:6].ljust(6)
                     rst = (contact['rst_rcvd'] or 'N/A')[:5].ljust(5)
                     comment = (contact.get('comment') or '')[:width-50]
-                    print(f"\033[{y};2H \033[33m{call}\033[0m   {mode} {band} {grid} {rst} {time_str}  \033[32m{comment}\033[0m", end='')
+                    print(f"\033[{y};2H \033[33m{call}\033[0m   {mode} {band} {grid}  {rst}{time_str}  \033[32m{comment}\033[0m", end='')
                 else:
                     # Narrow layout without comments
                     print(f"\033[{y};2H \033[33m{call}\033[0m   {mode} {band} {time_str}", end='')
