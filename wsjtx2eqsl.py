@@ -24,8 +24,8 @@ VERSION = "1.0.0"
 
 # Configuration
 UDP_PORT = 2333
-LOG_FILE = "wsjt-eqsl.log"
-CONFIG_FILE = os.path.expanduser("~/.wsjt-eqsl.conf")
+LOG_FILE = "wsjtx2eqsl.log"
+CONFIG_FILE = os.path.expanduser("~/.wsjtx2eqsl.conf")
 
 # Global state
 contact_count = 0
@@ -472,7 +472,7 @@ def draw_status_screen(username, auto_upload):
                     print(f"\033[{current_row};3H Grid:     \033[33m{last_contact['grid'] or 'N/A'}\033[0m", end='')
                     
                     if last_contact['freq'] and col2_pos < max_x:
-                        freq_text = f"Freq:     \033[33m{last_contact['freq']} MHz\033[0m"
+                        freq_text = f"Freq:     \033[33m{last_contact['freq']}MHz\033[0m"
                         print(f"\033[{current_row};{col2_pos}H{freq_text[:col3_pos-col2_pos-1]}", end='')
                     
                     # Date in third column
