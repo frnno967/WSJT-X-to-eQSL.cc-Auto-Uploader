@@ -35,14 +35,17 @@ upload_status = "Ready"
 connection_status = "Listening"
 running = True
 show_menu = False
+DEBUG = False
+AUTO_UPLOAD = True
 
-def save_credentials(username, password, auto_upload, udp_port=2333):
+def save_credentials(username, password, auto_upload, udp_port=2333, debug=False):
     """Save credentials to config file"""
     config = {
         'username': username,
         'password': password,
         'auto_upload': auto_upload,
-        'udp_port': udp_port
+        'udp_port': udp_port,
+        'debug': debug
     }
     try:
         with open(CONFIG_FILE, 'w') as f:
@@ -60,21 +63,22 @@ def load_credentials():
             return (config.get('username'), 
                     config.get('password'), 
                     config.get('auto_upload', True),
-                    config.get('udp_port', 2333))
+                    config.get('udp_port', 2333),
+                    config.get('debug', False))
         except:
             pass
-    return None, None, None, 2333
+    return None, None, None, 2333, False
 
 def get_credentials():
     """Get credentials from user or load from saved config"""
     # Try to load saved credentials first
-    saved_user, saved_pass, saved_auto, saved_port = load_credentials()
+    saved_user, saved_pass, saved_auto, saved_port, saved_debug = load_credentials()
     
     if saved_user and saved_pass:
         # Automatically use saved credentials
         print(f"\033[32m✓ Loaded saved credentials for: {saved_user}\033[0m")
         print(f"\033[36m(Press 'c' during operation to change configuration)\033[0m")
-        return saved_user, saved_pass, saved_auto, saved_port
+        return saved_user, saved_pass, saved_auto, saved_port, saved_debug
     
     # No saved credentials, get new ones
     print(f"\033[33mConfiguration Setup\033[0m\n")
@@ -94,16 +98,18 @@ def get_credentials():
     port_input = input(f"UDP port for WSJT-X logged ADIF (default 2333): ").strip()
     udp_port = int(port_input) if port_input.isdigit() else 2333
     
+    debug = input("Enable debug logging? (y/n): ").strip().lower() in ['y', 'yes']
+    
     # Ask if they want to save credentials
     print()
     save = input("Save configuration for next time? (y/n): ").strip().lower()
     if save in ['y', 'yes']:
-        save_credentials(username, password, auto_upload, udp_port)
+        save_credentials(username, password, auto_upload, udp_port, debug)
     else:
         print(f"\033[33mConfiguration will not be saved\033[0m")
     
     print()
-    return username, password, auto_upload, udp_port
+    return username, password, auto_upload, udp_port, debug
 
 def parse_adif(adif_text, field):
     """Extract field value from ADIF format"""
@@ -148,6 +154,11 @@ def upload_to_eqsl(adif_data, username, password):
     
     upload_status = "Uploading..."
     
+    if DEBUG:
+        log_message("=== DEBUG: Upload Request ===")
+        log_message(f"Username: {username}")
+        log_message(f"ADIF Data: {adif_data}")
+    
     try:
         response = requests.post(
             'https://www.eqsl.cc/qslcard/ImportADIF.cfm',
@@ -159,15 +170,24 @@ def upload_to_eqsl(adif_data, username, password):
             timeout=10
         )
         
+        if DEBUG:
+            log_message(f"Response Status Code: {response.status_code}")
+            log_message(f"Response Headers: {dict(response.headers)}")
+            log_message(f"Response Text: {response.text}")
+        
         response_text = response.text.lower()
         
         if 'result: 1' in response_text or 'success' in response_text:
             upload_status = "Upload OK"
             log_message("Upload successful")
+            if DEBUG:
+                log_message("=== DEBUG: Upload Success ===")
             return True
         else:
             upload_status = "Upload Failed"
             log_message(f"Upload failed - {response.text[:100]}")
+            if DEBUG:
+                log_message("=== DEBUG: Upload Failed ===")
             # Show error to user
             show_upload_error(response.text, adif_data, username, password)
             return False
@@ -175,6 +195,10 @@ def upload_to_eqsl(adif_data, username, password):
     except Exception as e:
         upload_status = f"Error: {str(e)[:20]}"
         log_message(f"Upload error - {e}")
+        if DEBUG:
+            log_message(f"=== DEBUG: Upload Exception ===")
+            log_message(f"Exception Type: {type(e).__name__}")
+            log_message(f"Exception Details: {str(e)}")
         # Show error to user
         show_upload_error(str(e), adif_data, username, password)
         return False
@@ -232,8 +256,26 @@ def log_message(message):
         # Could optionally print to stderr for debugging
         pass
 
+def timed_input(prompt, timeout_seconds):
+    """Get user input with a timeout (thread-safe version)"""
+    print(prompt, end='', flush=True)
+    
+    # Use select to wait for input with timeout
+    ready, _, _ = select.select([sys.stdin], [], [], timeout_seconds)
+    
+    if ready:
+        # Input is available, read it
+        line = sys.stdin.readline().rstrip('\n')
+        return line
+    else:
+        # Timeout occurred
+        print()  # Move to new line
+        return None
+
 def manage_credentials():
     """Interactive menu to manage saved credentials"""
+    global DEBUG, AUTO_UPLOAD
+    
     # Show cursor and clear screen
     print("\033[?25h\033[2J\033[1;1H")
     
@@ -245,22 +287,34 @@ def manage_credentials():
     print("2. Change credentials")
     print("3. Toggle auto-upload")
     print("4. Change UDP port")
-    print("5. Delete saved configuration")
-    print("6. Return to monitoring")
+    print("5. Toggle debug logging")
+    print("6. Delete saved configuration")
+    print("7. Return to monitoring")
+    print()
+    print("\033[33m(Auto-return to monitoring in 2 minutes if no selection)\033[0m")
     print()
     
-    choice = input("Select option (1-6): ").strip()
+    choice = timed_input("Select option (1-7): ", 120)  # 2 minute timeout
+    
+    if choice is None:
+        print("\n\033[33mTimeout - returning to monitoring...\033[0m")
+        time.sleep(1)
+        return False
+    
+    choice = choice.strip()
     
     if choice == '1':
-        saved_user, _, saved_auto, saved_port = load_credentials()
+        saved_user, _, saved_auto, saved_port, saved_debug = load_credentials()
         if saved_user:
-            print(f"\n\033[32mUsername:    {saved_user}\033[0m")
-            print(f"\033[32mAuto-upload: {saved_auto}\033[0m")
-            print(f"\033[32mUDP Port:    {saved_port}\033[0m")
+            print(f"\n\033[32mUsername:      {saved_user}\033[0m")
+            print(f"\033[32mAuto-upload:   {saved_auto}\033[0m")
+            print(f"\033[32mUDP Port:      {saved_port}\033[0m")
+            print(f"\033[32mDebug logging: {saved_debug}\033[0m")
         else:
             print(f"\n\033[33mNo saved configuration found\033[0m")
         input("\nPress Enter to continue...")
-        return False
+        # Return to configuration menu
+        return manage_credentials()
     
     elif choice == '2':
         print(f"\n\033[33mEnter new credentials:\033[0m\n")
@@ -268,47 +322,81 @@ def manage_credentials():
         if username:
             password = getpass("Enter your eQSL.cc password: ")
             if password:
-                saved_user, saved_pass, saved_auto, saved_port = load_credentials()
+                saved_user, saved_pass, saved_auto, saved_port, saved_debug = load_credentials()
                 auto_upload = input("Enable auto-upload? (y/n): ").strip().lower() in ['y', 'yes']
-                save_credentials(username, password, auto_upload, saved_port or 2333)
+                save_credentials(username, password, auto_upload, saved_port or 2333, saved_debug)
                 print(f"\n\033[32m✓ Credentials updated! Please restart the script to use them.\033[0m")
                 input("\nPress Enter to continue...")
                 return True  # Signal to restart
         return False
     
     elif choice == '3':
-        saved_user, saved_pass, saved_auto, saved_port = load_credentials()
+        saved_user, saved_pass, saved_auto, saved_port, saved_debug = load_credentials()
         if saved_user and saved_pass:
             new_auto = not saved_auto
-            save_credentials(saved_user, saved_pass, new_auto, saved_port or 2333)
+            save_credentials(saved_user, saved_pass, new_auto, saved_port or 2333, saved_debug)
+            AUTO_UPLOAD = new_auto  # Update global AUTO_UPLOAD immediately
             status = "enabled" if new_auto else "disabled"
-            print(f"\n\033[32m✓ Auto-upload {status}! Please restart the script to apply.\033[0m")
+            print(f"\n\033[32m✓ Auto-upload {status}!\033[0m")
+            log_message(f"Auto-upload {status}")
             input("\nPress Enter to continue...")
-            return True  # Signal to restart
+            return manage_credentials()  # Return to configuration menu
         else:
             print(f"\n\033[33mNo saved configuration found\033[0m")
             input("\nPress Enter to continue...")
         return False
     
     elif choice == '4':
-        saved_user, saved_pass, saved_auto, saved_port = load_credentials()
+        saved_user, saved_pass, saved_auto, saved_port, saved_debug = load_credentials()
         if saved_user and saved_pass:
-            print(f"\n\033[33mCurrent UDP port: {saved_port}\033[0m")
-            new_port = input("Enter new UDP port (default 2333): ").strip()
-            if new_port.isdigit():
-                save_credentials(saved_user, saved_pass, saved_auto, int(new_port))
-                print(f"\n\033[32m✓ UDP port changed to {new_port}! Please restart the script to apply.\033[0m")
+            print(f"\n\033[36mDefault WSJT-X UDP port:  2333\033[0m")
+            print(f"\033[33mCurrent UDP port: {saved_port}\033[0m")
+            new_port = input("Enter new UDP port (1-65535, or press Enter to keep current): ").strip()
+            
+            # If empty, don't change
+            if not new_port:
+                print(f"\n\033[36mUDP port unchanged ({saved_port})\033[0m")
                 input("\nPress Enter to continue...")
-                return True  # Signal to restart
+                return manage_credentials()  # Return to configuration menu
+            # Check if it's a valid port number
+            elif new_port.isdigit() and 1 <= int(new_port) <= 65535:
+                new_port_num = int(new_port)
+                # If same as current, don't change
+                if new_port_num == saved_port:
+                    print(f"\n\033[36mUDP port unchanged ({saved_port})\033[0m")
+                    input("\nPress Enter to continue...")
+                    return manage_credentials()  # Return to configuration menu
+                else:
+                    save_credentials(saved_user, saved_pass, saved_auto, new_port_num, saved_debug)
+                    print(f"\n\033[32m✓ UDP port changed to {new_port_num}! Please restart the script to apply.\033[0m")
+                    input("\nPress Enter to continue...")
+                    return True  # Signal to restart
             else:
-                print(f"\n\033[31mInvalid port number\033[0m")
+                print(f"\n\033[31mInvalid port number. Must be between 1 and 65535.\033[0m")
                 input("\nPress Enter to continue...")
+                return manage_credentials()  # Return to configuration menu
         else:
             print(f"\n\033[33mNo saved configuration found\033[0m")
             input("\nPress Enter to continue...")
         return False
     
     elif choice == '5':
+        saved_user, saved_pass, saved_auto, saved_port, saved_debug = load_credentials()
+        if saved_user and saved_pass:
+            new_debug = not saved_debug
+            save_credentials(saved_user, saved_pass, saved_auto, saved_port or 2333, new_debug)
+            DEBUG = new_debug  # Update global DEBUG immediately
+            status = "enabled" if new_debug else "disabled"
+            print(f"\n\033[32m✓ Debug logging {status}!\033[0m")
+            log_message(f"Debug logging {status}")
+            input("\nPress Enter to continue...")
+            return manage_credentials()  # Return to configuration menu
+        else:
+            print(f"\n\033[33mNo saved configuration found\033[0m")
+            input("\nPress Enter to continue...")
+        return False
+    
+    elif choice == '6':
         confirm = input(f"\n\033[31mDelete saved configuration? (y/n): \033[0m").strip().lower()
         if confirm in ['y', 'yes']:
             try:
@@ -321,17 +409,24 @@ def manage_credentials():
                 input("\nPress Enter to continue...")
         return False
     
-    elif choice == '6':
+    elif choice == '7':
         return False  # Return to monitoring
     
     return False
 
 
-def process_qso(adif_data, auto_upload, username, password):
+def process_qso(adif_data, username, password):
     """Process a QSO"""
     global contact_count, recent_contacts, last_contact, upload_status
     
+    if DEBUG:
+        log_message("=== DEBUG: Processing QSO ===")
+        log_message(f"Raw ADIF Data: {adif_data}")
+    
     fields = parse_all_adif(adif_data)
+    
+    if DEBUG:
+        log_message(f"Parsed ADIF Fields: {fields}")
     
     contact = {
         'call': fields.get('call', 'N/A'),
@@ -347,6 +442,9 @@ def process_qso(adif_data, auto_upload, username, password):
         'timestamp': datetime.utcnow()
     }
     
+    if DEBUG:
+        log_message(f"Contact Object: {contact}")
+    
     contact_count += 1
     recent_contacts.insert(0, contact)
     recent_contacts = recent_contacts[:10]
@@ -354,11 +452,13 @@ def process_qso(adif_data, auto_upload, username, password):
     
     log_message(f"QSO with {contact['call']} on {contact['mode']}/{contact['band']}")
     
-    if auto_upload:
+    if AUTO_UPLOAD:
         # Upload the complete ADIF data (includes all fields including comments)
         upload_to_eqsl(adif_data, username, password)
     else:
         upload_status = "Manual mode"
+        if DEBUG:
+            log_message("DEBUG: Auto-upload disabled, skipping upload")
 
 def get_terminal_size():
     """Get current terminal size"""
@@ -386,7 +486,7 @@ def draw_box(x, y, width, height, title=""):
     # Bottom border
     print(f"\033[{y+height-1};{x}H└{'─' * (width-2)}┘", end='')
 
-def draw_status_screen(username, auto_upload):
+def draw_status_screen(username):
     """Draw the main status screen"""
     global contact_count, recent_contacts, last_contact, upload_status, connection_status, running, show_menu
     
@@ -424,10 +524,10 @@ def draw_status_screen(username, auto_upload):
         # Status box (top left) - starts at row 2 (no blank line)
         status_width = half_width - 1
         draw_box(1, 2, status_width, 6, "STATUS")
-        conn_text = f"Listening, UDP Port {UDP_PORT}"
+        conn_text = f"Listening,UDP Port {UDP_PORT}"
         print(f"\033[3;3HConnection: \033[32m{conn_text[:status_width-14]}\033[0m", end='')
         print(f"\033[4;3HUsername:   \033[33m{username[:status_width-14]}\033[0m", end='')
-        print(f"\033[5;3HAuto-upload: \033[33m{'ON' if auto_upload else 'OFF'}\033[0m", end='')
+        print(f"\033[5;3HAuto-upload: \033[33m{'ON' if AUTO_UPLOAD else 'OFF'}\033[0m", end='')
         print(f"\033[5;25H QSOs: \033[36m{contact_count}\033[0m", end='')
         print(f"\033[6;3HLast Upload: \033[33m{upload_status[:status_width-15]}\033[0m", end='')
         
@@ -610,7 +710,7 @@ def draw_status_screen(username, auto_upload):
         sys.stdout.flush()
         time.sleep(1)
 
-def listen_udp(username, password, auto_upload, udp_port):
+def listen_udp(username, password, udp_port):
     """Listen for UDP packets from WSJT-X"""
     global connection_status
     
@@ -621,18 +721,37 @@ def listen_udp(username, password, auto_upload, udp_port):
     try:
         sock.bind(('0.0.0.0', udp_port))
         connection_status = "Listening"
+        if DEBUG:
+            log_message(f"DEBUG: UDP listener started on port {udp_port}")
     except Exception as e:
         connection_status = f"Error: {str(e)[:20]}"
+        if DEBUG:
+            log_message(f"DEBUG: Failed to bind UDP socket: {e}")
         sys.exit(1)
     
     try:
         while True:
             try:
                 data, addr = sock.recvfrom(4096)
+                
+                if DEBUG:
+                    log_message(f"=== DEBUG: Raw UDP Packet Received ===")
+                    log_message(f"Source Address: {addr}")
+                    log_message(f"Data Length: {len(data)} bytes")
+                    log_message(f"Raw Bytes (first 200): {data[:200]}")
+                
                 message = data.decode('utf-8', errors='ignore').strip()
                 
+                if DEBUG:
+                    log_message(f"Decoded Message: {message}")
+                
                 if '<call:' in message.lower() or ('<' in message and ':' in message and '>' in message):
-                    process_qso(message, auto_upload, username, password)
+                    if DEBUG:
+                        log_message("DEBUG: Message contains ADIF data, processing...")
+                    process_qso(message, username, password)
+                else:
+                    if DEBUG:
+                        log_message("DEBUG: Message does not contain ADIF data, ignoring")
                     
             except socket.timeout:
                 continue
@@ -641,8 +760,10 @@ def listen_udp(username, password, auto_upload, udp_port):
         pass
     finally:
         sock.close()
+        if DEBUG:
+            log_message("DEBUG: UDP listener stopped")
 
-def handle_keyboard(username, auto_upload):
+def handle_keyboard(username):
     """Handle keyboard input"""
     global running, show_menu
     
@@ -688,7 +809,7 @@ def handle_keyboard(username, auto_upload):
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
 def main():
-    global UDP_PORT
+    global UDP_PORT, DEBUG, AUTO_UPLOAD
     
     print("\033[2J\033[1;1H")
     print("\033[36m╔════════════════════════════════════════════════╗\033[0m")
@@ -698,25 +819,29 @@ def main():
     print("\033[36m║  Comments? recstudio@gmail.com                 ║\033[0m")
     print("\033[36m╚════════════════════════════════════════════════╝\033[0m\n")
     
-    username, password, auto_upload, udp_port = get_credentials()
+    username, password, auto_upload, udp_port, debug = get_credentials()
     UDP_PORT = udp_port  # Update global UDP_PORT
+    DEBUG = debug  # Update global DEBUG
+    AUTO_UPLOAD = auto_upload  # Update global AUTO_UPLOAD
     
     print(f"\n\033[32m✓ Starting...\033[0m\n")
     time.sleep(1)
     
     log_message("=== WSJT-X to eQSL.cc Uploader Started ===")
+    if DEBUG:
+        log_message("DEBUG: Debug logging is ENABLED")
     
     # Start UDP listener in background thread
-    udp_thread = threading.Thread(target=listen_udp, args=(username, password, auto_upload, udp_port), daemon=True)
+    udp_thread = threading.Thread(target=listen_udp, args=(username, password, udp_port), daemon=True)
     udp_thread.start()
     
     # Start keyboard handler in background thread
-    kb_thread = threading.Thread(target=handle_keyboard, args=(username, auto_upload), daemon=True)
+    kb_thread = threading.Thread(target=handle_keyboard, args=(username,), daemon=True)
     kb_thread.start()
     
     # Run status screen in main thread
     try:
-        draw_status_screen(username, auto_upload)
+        draw_status_screen(username)
     except KeyboardInterrupt:
         print("\033[2J\033[?25h\033[1;1H")
         print("\n\033[33mShutting down...\033[0m")
