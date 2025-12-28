@@ -18,9 +18,9 @@ WSJT-X to eQSL.cc Auto-Uploader is a Python-based tool for Amateur Radio that au
 - **Automatic QSO Upload**: Automatically uploads contacts to eQSL.cc as they are logged in WSJT-X from anywhere on your local network
 - **Real-time Monitoring**: Live display of contact information including callsign, mode, band, frequency, grid square, RST reports, and comments
 - **Contact History**: View your last contacts in the recent contacts list
-- **Configuration Management**: Save your eQSL.cc credentials and settings for automatic login
-- **Time Display**: Shows both UTC and Local time/date for logging accuracy
-- **Upload Statistics**: Track total QSOs logged and upload status
+- **Configuration Management**: Save your eQSL.cc credentials and settings for later use
+- **Retro BBS Style**: Simple and lightweight program interface inspired by retro BBS interfaces
+- **Upload Statistics**: Track total QSOs logged for the session 
 - **Error Handling**: Retry failed uploads with interactive error dialogs
 - **Debug Mode**: Extensive logging of debug information if needed
 
@@ -131,15 +131,15 @@ Press **C** to access the configuration menu with these options:
 6. **Delete saved configuration** - Remove stored credentials
 7. **Return to monitoring** - Go back to the main screen
 
-**Note:** Changes to credentials, auto-upload, or UDP port require restarting the program to take effect.
+**Note:** Changes to credentials or UDP port require restarting the program to take effect.
 
 ## Understanding the Display
 
 ### STATUS Panel
 - **Connection**: Shows listening status and UDP port
-- **Username**: Your eQSL.cc callsign
+- **Username**: Your eQSL.cc username 
 - **Auto-upload**: ON/OFF status
-- **QSOs**: Total number of contacts logged
+- **QSOs**: Total number of contacts logged for the session 
 - **Last Upload**: Status of the most recent upload attempt
 
 ### TIME & DATE Panel
