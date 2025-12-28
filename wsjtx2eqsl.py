@@ -16,7 +16,7 @@ import shutil
 import select
 import termios
 import tty
-from datetime import datetime
+from datetime import datetime, timezone
 from getpass import getpass
 
 # Version
@@ -249,7 +249,7 @@ def log_message(message):
     """Log message to file"""
     try:
         with open(LOG_FILE, 'a') as f:
-            f.write(f"{datetime.utcnow()}: {message}\n")
+            f.write(f"{datetime.now(timezone.utc)}: {message}\n")
             f.flush()  # Force write to disk
     except Exception as e:
         # If logging fails, don't crash the program
@@ -439,7 +439,7 @@ def process_qso(adif_data, username, password):
         'qso_date': fields.get('qso_date', None),
         'time_on': fields.get('time_off', None) or fields.get('time_on', None),  # Prefer time_off
         'comment': fields.get('comment', None),
-        'timestamp': datetime.utcnow()
+        'timestamp': datetime.now(timezone.utc)
     }
     
     if DEBUG:
@@ -535,7 +535,7 @@ def draw_status_screen(username):
         time_box_x = half_width + 1
         time_box_width = width - half_width
         draw_box(time_box_x, 2, time_box_width, 6, "TIME & DATE")
-        utc_now = datetime.utcnow()
+        utc_now = datetime.now(timezone.utc)
         local_now = datetime.now()
         
         # Fixed column positions - column 2 starts at a fixed offset from column 1
@@ -580,7 +580,7 @@ def draw_status_screen(username):
                 
                 # Row 1: Callsign, Mode, Band
                 if current_row < max_row:
-                    print(f"\033[{current_row};2H Callsign: \033[33m{last_contact['call']}\033[0m", end='')
+                    print(f"\033[{current_row};2H Callsign: \033[31m{last_contact['call']}\033[0m", end='')
                     
                     mode_text = f"Mode:     \033[33m{last_contact['mode']}\033[0m"
                     if col2_pos < max_x:
@@ -633,7 +633,7 @@ def draw_status_screen(username):
                     current_row += 1
             else:
                 # Narrow layout - stacked
-                print(f"\033[13;2H Call: \033[33m{last_contact['call']}\033[0m  Mode: \033[33m{last_contact['mode']}\033[0m  Band: \033[33m{last_contact['band']}\033[0m", end='')
+                print(f"\033[13;2H Call: \033[31m{last_contact['call']}\033[0m  Mode: \033[33m{last_contact['mode']}\033[0m  Band: \033[33m{last_contact['band']}\033[0m", end='')
                 print(f"\033[14;2H Grid: \033[33m{last_contact['grid'] or 'N/A'}\033[0m", end='')
                 if last_contact['freq']:
                     freq_formatted = format_frequency(last_contact['freq'])
@@ -690,16 +690,16 @@ def draw_status_screen(username):
                     grid = (contact['grid'] or 'N/A')[:6].ljust(6)
                     rst = (contact['rst_rcvd'] or 'N/A')[:5].ljust(5)
                     comment = (contact.get('comment') or '')[:width-55]
-                    print(f"\033[{y};2H \033[33m{call}\033[0m   {mode} {band} {grid}  {rst}{time_str}  \033[32m{comment}\033[0m", end='')
+                    print(f"\033[{y};2H \033[31m{call}\033[0m   \033[33m{mode} {band} {grid}  {rst}{time_str}\033[0m  \033[32m{comment}\033[0m", end='')
                 elif width >= 70:
                     # Medium layout with comments
                     grid = (contact['grid'] or 'N/A')[:6].ljust(6)
                     rst = (contact['rst_rcvd'] or 'N/A')[:5].ljust(5)
                     comment = (contact.get('comment') or '')[:width-50]
-                    print(f"\033[{y};2H \033[33m{call}\033[0m   {mode} {band} {grid}  {rst}{time_str}  \033[32m{comment}\033[0m", end='')
+                    print(f"\033[{y};2H \033[31m{call}\033[0m   \033[33m{mode} {band} {grid}  {rst}{time_str}\033[0m  \033[32m{comment}\033[0m", end='')
                 else:
                     # Narrow layout without comments
-                    print(f"\033[{y};2H \033[33m{call}\033[0m   {mode} {band} {time_str}", end='')
+                    print(f"\033[{y};2H \033[31m{call}\033[0m   \033[33m{mode} {band} {time_str}\033[0m", end='')
         
         # Footer (full width)
         footer_y = height
