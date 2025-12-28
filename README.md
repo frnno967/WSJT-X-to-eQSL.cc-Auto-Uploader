@@ -243,6 +243,13 @@ You can also use **Ctrl+C** to exit, though using **Q** is preferred for a clean
 
 ## Version History
 
+**Version 1.1.0** (2025)
+- Adjusted formatting of fields in windows
+- Fixed input validation of UDP config dialog
+- Eliminated need to restart after changing the auto-upload setting
+- Made debugging output more comprehensive
+- Moved log file to user's home directory with config file
+
 **Version 1.0.0** (2025)
 - Initial release
 - Automatic ADIF upload to eQSL.cc
