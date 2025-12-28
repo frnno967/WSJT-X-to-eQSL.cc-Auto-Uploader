@@ -580,7 +580,7 @@ def draw_status_screen(username):
                 
                 # Row 1: Callsign, Mode, Band
                 if current_row < max_row:
-                    print(f"\033[{current_row};2H Callsign: \033[31m{last_contact['call']}\033[0m", end='')
+                    print(f"\033[{current_row};2H Callsign: \033[93m{last_contact['call']}\033[0m", end='')
                     
                     mode_text = f"Mode:     \033[33m{last_contact['mode']}\033[0m"
                     if col2_pos < max_x:
@@ -633,7 +633,7 @@ def draw_status_screen(username):
                     current_row += 1
             else:
                 # Narrow layout - stacked
-                print(f"\033[13;2H Call: \033[31m{last_contact['call']}\033[0m  Mode: \033[33m{last_contact['mode']}\033[0m  Band: \033[33m{last_contact['band']}\033[0m", end='')
+                print(f"\033[13;2H Call: \033[93m{last_contact['call']}\033[0m  Mode: \033[33m{last_contact['mode']}\033[0m  Band: \033[33m{last_contact['band']}\033[0m", end='')
                 print(f"\033[14;2H Grid: \033[33m{last_contact['grid'] or 'N/A'}\033[0m", end='')
                 if last_contact['freq']:
                     freq_formatted = format_frequency(last_contact['freq'])
@@ -690,16 +690,16 @@ def draw_status_screen(username):
                     grid = (contact['grid'] or 'N/A')[:6].ljust(6)
                     rst = (contact['rst_rcvd'] or 'N/A')[:5].ljust(5)
                     comment = (contact.get('comment') or '')[:width-55]
-                    print(f"\033[{y};2H \033[31m{call}\033[0m   \033[33m{mode} {band} {grid}  {rst}{time_str}\033[0m  \033[32m{comment}\033[0m", end='')
+                    print(f"\033[{y};2H \033[93m{call}\033[0m   \033[33m{mode} {band} {grid}  {rst}{time_str}\033[0m  \033[32m{comment}\033[0m", end='')
                 elif width >= 70:
                     # Medium layout with comments
                     grid = (contact['grid'] or 'N/A')[:6].ljust(6)
                     rst = (contact['rst_rcvd'] or 'N/A')[:5].ljust(5)
                     comment = (contact.get('comment') or '')[:width-50]
-                    print(f"\033[{y};2H \033[31m{call}\033[0m   \033[33m{mode} {band} {grid}  {rst}{time_str}\033[0m  \033[32m{comment}\033[0m", end='')
+                    print(f"\033[{y};2H \033[93m{call}\033[0m   \033[33m{mode} {band} {grid}  {rst}{time_str}\033[0m  \033[32m{comment}\033[0m", end='')
                 else:
                     # Narrow layout without comments
-                    print(f"\033[{y};2H \033[31m{call}\033[0m   \033[33m{mode} {band} {time_str}\033[0m", end='')
+                    print(f"\033[{y};2H \033[93m{call}\033[0m   \033[33m{mode} {band} {time_str}\033[0m", end='')
         
         # Footer (full width)
         footer_y = height
