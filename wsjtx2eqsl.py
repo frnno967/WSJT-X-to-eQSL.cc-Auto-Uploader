@@ -197,7 +197,7 @@ def upload_to_eqsl(adif_data, username, password):
                 'EQSL_PSWD': password,
                 'ADIFData': adif_data
             },
-            timeout=10
+            timeout=30
         )
         
         if DEBUG:
@@ -282,9 +282,36 @@ def log_message(message):
         with open(LOG_FILE, 'a') as f:
             f.write(f"{datetime.now(timezone.utc)}: {message}\n")
             f.flush()  # Force write to disk
+        
+        # Rotate log if it gets too large (keep last 1000 lines)
+        rotate_log_if_needed()
     except Exception as e:
         # If logging fails, don't crash the program
         # Could optionally print to stderr for debugging
+        pass
+
+def rotate_log_if_needed():
+    """Keep log file manageable by keeping only the last 1000 lines"""
+    try:
+        if not os.path.exists(LOG_FILE):
+            return
+        
+        # Check file size - rotate if larger than ~500KB
+        file_size = os.path.getsize(LOG_FILE)
+        if file_size < 500000:  # 500KB threshold
+            return
+        
+        # Read all lines
+        with open(LOG_FILE, 'r') as f:
+            lines = f.readlines()
+        
+        # Keep only last 1000 lines
+        if len(lines) > 1000:
+            with open(LOG_FILE, 'w') as f:
+                f.write(f"# Log rotated - keeping last 1000 entries\n")
+                f.writelines(lines[-1000:])
+    except:
+        # If rotation fails, don't crash - just continue logging
         pass
 
 def timed_input(prompt, timeout_seconds):
@@ -570,8 +597,8 @@ def draw_status_screen(username):
         width, height = get_terminal_size()
         
         # Minimum size check
-        if width < 60 or height < 20:
-            print(f"\033[2J\033[1;1H{c('31')}Terminal too small! Minimum 60x20{c('0')}", end='')
+        if width < 80 or height < 24:
+            print(f"\033[2J\033[1;1H{c('31')}Terminal too small! Minimum 80x24{c('0')}", end='')
             sys.stdout.flush()
             time.sleep(1)
             continue
