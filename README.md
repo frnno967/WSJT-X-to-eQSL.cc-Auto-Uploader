@@ -178,6 +178,8 @@ All activity is logged to `wsjtx2eqsl.log` in the user's home directory. This in
 - QSO logging events
 - Upload successes and failures
 
+The log file will be rotated regularly and limited to the most recent 1000 lines, for a max size of 500KB.
+
 ## Troubleshooting
 
 ### No contacts appearing
@@ -246,10 +248,13 @@ You can also use **Ctrl+C** to exit, though using **Q** is preferred for a clean
 
 **Version 1.1.0** (2025)
 - Adjusted formatting of fields in windows
+- Added monochrome ASCII output mode
+- Added log rotation feature
 - Fixed input validation of UDP config dialog
-- Eliminated need to restart after changing the auto-upload setting
+- Eliminated need to restart after changing some settings
 - Made debugging output more comprehensive
 - Moved log file to user's home directory with config file
+- Changes to make the program more robust with server lag
 
 **Version 1.0.0** (2025)
 - Initial release
