@@ -37,15 +37,17 @@ running = True
 show_menu = False
 DEBUG = False
 AUTO_UPLOAD = True
+COLOR_MODE = True  # True for color, False for monochrome
 
-def save_credentials(username, password, auto_upload, udp_port=2333, debug=False):
+def save_credentials(username, password, auto_upload, udp_port=2333, debug=False, color_mode=True):
     """Save credentials to config file"""
     config = {
         'username': username,
         'password': password,
         'auto_upload': auto_upload,
         'udp_port': udp_port,
-        'debug': debug
+        'debug': debug,
+        'color_mode': color_mode
     }
     try:
         with open(CONFIG_FILE, 'w') as f:
@@ -64,33 +66,55 @@ def load_credentials():
                     config.get('password'), 
                     config.get('auto_upload', True),
                     config.get('udp_port', 2333),
-                    config.get('debug', False))
+                    config.get('debug', False),
+                    config.get('color_mode', True))
         except:
             pass
-    return None, None, None, 2333, False
+    return None, None, None, 2333, False, True
+
+def c(color_code):
+    """Return color code if COLOR_MODE is enabled, otherwise return empty string"""
+    if COLOR_MODE:
+        return f"\033[{color_code}m"
+    return ""
+
+def box_chars():
+    """Return box-drawing characters based on COLOR_MODE"""
+    if COLOR_MODE:
+        # Unicode box-drawing characters
+        return {
+            'tl': '╔', 'tr': '╗', 'bl': '╚', 'br': '╝',
+            'h': '═', 'v': '║'
+        }
+    else:
+        # ASCII characters for vintage terminal compatibility
+        return {
+            'tl': '+', 'tr': '+', 'bl': '+', 'br': '+',
+            'h': '=', 'v': '|'
+        }
 
 def get_credentials():
     """Get credentials from user or load from saved config"""
     # Try to load saved credentials first
-    saved_user, saved_pass, saved_auto, saved_port, saved_debug = load_credentials()
+    saved_user, saved_pass, saved_auto, saved_port, saved_debug, saved_color = load_credentials()
     
     if saved_user and saved_pass:
         # Automatically use saved credentials
-        print(f"\033[32m✓ Loaded saved credentials for: {saved_user}\033[0m")
-        print(f"\033[36m(Press 'c' during operation to change configuration)\033[0m")
-        return saved_user, saved_pass, saved_auto, saved_port, saved_debug
+        print(f"{c('32')}✓ Loaded saved credentials for: {saved_user}{c('0')}")
+        print(f"{c('36')}(Press 'c' during operation to change configuration){c('0')}")
+        return saved_user, saved_pass, saved_auto, saved_port, saved_debug, saved_color
     
     # No saved credentials, get new ones
-    print(f"\033[33mConfiguration Setup\033[0m\n")
+    print(f"{c('33')}Configuration Setup{c('0')}\n")
     
     username = input("Enter your eQSL.cc username (callsign): ").strip()
     if not username:
-        print(f"\033[31mError: Username cannot be empty\033[0m")
+        print(f"{c('31')}Error: Username cannot be empty{c('0')}")
         sys.exit(1)
     
     password = getpass("Enter your eQSL.cc password (WILL NOT ECHO): ")
     if not password:
-        print(f"\033[31mError: Password cannot be empty\033[0m")
+        print(f"{c('31')}Error: Password cannot be empty{c('0')}")
         sys.exit(1)
     
     auto_upload = input("\nEnable auto-upload to eQSL.cc? (y/n): ").strip().lower() in ['y', 'yes']
@@ -100,13 +124,19 @@ def get_credentials():
     
     debug = input("Enable debug logging? (y/n): ").strip().lower() in ['y', 'yes']
     
+    color_mode = input("Enable ANSI color mode? (y/n, default y): ").strip().lower()
+    color_mode = color_mode in ['y', 'yes', ''] # Default to yes if empty
+    
     # Ask if they want to save credentials
     print()
     save = input("Save configuration for next time? (y/n): ").strip().lower()
     if save in ['y', 'yes']:
-        save_credentials(username, password, auto_upload, udp_port, debug)
+        save_credentials(username, password, auto_upload, udp_port, debug, color_mode)
     else:
-        print(f"\033[33mConfiguration will not be saved\033[0m")
+        print(f"{c('33')}Configuration will not be saved{c('0')}")
+    
+    print()
+    return username, password, auto_upload, udp_port, debug, color_mode
     
     print()
     return username, password, auto_upload, udp_port, debug
@@ -216,15 +246,16 @@ def show_upload_error(error_msg, adif_data, username, password):
         # Show cursor and clear screen
         print("\033[?25h\033[2J\033[1;1H")
         
-        print(f"\033[31m╔════════════════════════════════════════════╗\033[0m")
-        print(f"\033[31m║            *** Upload Error ***            ║\033[0m")
-        print(f"\033[31m╚════════════════════════════════════════════╝\033[0m")
+        b = box_chars()
+        print(f"{c('31')}{b['tl']}{b['h'] * 44}{b['tr']}{c('0')}")
+        print(f"{c('31')}{b['v']}            *** Upload Error ***            {b['v']}{c('0')}")
+        print(f"{c('31')}{b['bl']}{b['h'] * 44}{b['br']}{c('0')}")
         print()
-        print(f"\033[33mFailed to upload to eQSL.cc\033[0m")
+        print(f"{c('33')}Failed to upload to eQSL.cc{c('0')}")
         print()
         print(f"Error: {error_msg[:200]}")
         print()
-        print(f"\033[36mPress (R) to retry upload, or any other key to ignore...\033[0m")
+        print(f"{c('36')}Press (R) to retry upload, or any other key to ignore...{c('0')}")
         
         # Set to raw mode for single character input
         tty.setcbreak(sys.stdin.fileno())
@@ -233,7 +264,7 @@ def show_upload_error(error_msg, adif_data, username, password):
         key = sys.stdin.read(1).lower()
         
         if key == 'r':
-            print("\n\033[33mRetrying upload...\033[0m")
+            print(f"\n{c('33')}Retrying upload...{c('0')}")
             time.sleep(1)
             # Retry the upload
             upload_to_eqsl(adif_data, username, password)
@@ -274,88 +305,91 @@ def timed_input(prompt, timeout_seconds):
 
 def manage_credentials():
     """Interactive menu to manage saved credentials"""
-    global DEBUG, AUTO_UPLOAD
+    global DEBUG, AUTO_UPLOAD, COLOR_MODE
     
     # Show cursor and clear screen
     print("\033[?25h\033[2J\033[1;1H")
     
-    print(f"\033[36m╔════════════════════════════════════════════╗\033[0m")
-    print(f"\033[36m║              Configuration                 ║\033[0m")
-    print(f"\033[36m╚════════════════════════════════════════════╝\033[0m")
+    b = box_chars()
+    print(f"{c('36')}{b['tl']}{b['h'] * 44}{b['tr']}{c('0')}")
+    print(f"{c('36')}{b['v']}              Configuration                 {b['v']}{c('0')}")
+    print(f"{c('36')}{b['bl']}{b['h'] * 44}{b['br']}{c('0')}")
     print()
     print("1. View current settings")
     print("2. Change credentials")
     print("3. Toggle auto-upload")
     print("4. Change UDP port")
     print("5. Toggle debug logging")
-    print("6. Delete saved configuration")
-    print("7. Return to monitoring")
+    print("6. Toggle color mode")
+    print("7. Delete saved configuration")
+    print("8. Return to monitoring")
     print()
-    print("\033[33m(Auto-return to monitoring in 2 minutes if no selection)\033[0m")
+    print(f"{c('33')}(Auto-return to monitoring in 2 minutes if no selection){c('0')}")
     print()
     
-    choice = timed_input("Select option (1-7): ", 120)  # 2 minute timeout
+    choice = timed_input("Select option (1-8): ", 120)  # 2 minute timeout
     
     if choice is None:
-        print("\n\033[33mTimeout - returning to monitoring...\033[0m")
+        print(f"\n{c('33')}Timeout - returning to monitoring...{c('0')}")
         time.sleep(1)
         return False
     
     choice = choice.strip()
     
     if choice == '1':
-        saved_user, _, saved_auto, saved_port, saved_debug = load_credentials()
+        saved_user, _, saved_auto, saved_port, saved_debug, saved_color = load_credentials()
         if saved_user:
-            print(f"\n\033[32mUsername:      {saved_user}\033[0m")
-            print(f"\033[32mAuto-upload:   {saved_auto}\033[0m")
-            print(f"\033[32mUDP Port:      {saved_port}\033[0m")
-            print(f"\033[32mDebug logging: {saved_debug}\033[0m")
+            print(f"\n{c('32')}Username:      {saved_user}{c('0')}")
+            print(f"{c('32')}Auto-upload:   {saved_auto}{c('0')}")
+            print(f"{c('32')}UDP Port:      {saved_port}{c('0')}")
+            print(f"{c('32')}Debug logging: {saved_debug}{c('0')}")
+            print(f"{c('32')}Color mode:    {saved_color}{c('0')}")
         else:
-            print(f"\n\033[33mNo saved configuration found\033[0m")
+            print(f"\n{c('33')}No saved configuration found{c('0')}")
         input("\nPress Enter to continue...")
         # Return to configuration menu
         return manage_credentials()
     
     elif choice == '2':
-        print(f"\n\033[33mEnter new credentials:\033[0m\n")
+        print(f"\n{c('33')}Enter new credentials:{c('0')}\n")
         username = input("Enter your eQSL.cc username (callsign): ").strip()
         if username:
             password = getpass("Enter your eQSL.cc password: ")
             if password:
-                saved_user, saved_pass, saved_auto, saved_port, saved_debug = load_credentials()
+                saved_user, saved_pass, saved_auto, saved_port, saved_debug, saved_color = load_credentials()
                 auto_upload = input("Enable auto-upload? (y/n): ").strip().lower() in ['y', 'yes']
-                save_credentials(username, password, auto_upload, saved_port or 2333, saved_debug)
-                print(f"\n\033[32m✓ Credentials updated! Please restart the script to use them.\033[0m")
+                save_credentials(username, password, auto_upload, saved_port or 2333, saved_debug, saved_color)
+                print(f"\n{c('32')}✓ Credentials updated! Please restart the script to use them.{c('0')}")
                 input("\nPress Enter to continue...")
                 return True  # Signal to restart
         return False
     
     elif choice == '3':
-        saved_user, saved_pass, saved_auto, saved_port, saved_debug = load_credentials()
+        saved_user, saved_pass, saved_auto, saved_port, saved_debug, saved_color = load_credentials()
         if saved_user and saved_pass:
             new_auto = not saved_auto
-            save_credentials(saved_user, saved_pass, new_auto, saved_port or 2333, saved_debug)
+            save_credentials(saved_user, saved_pass, new_auto, saved_port or 2333, saved_debug, saved_color)
             AUTO_UPLOAD = new_auto  # Update global AUTO_UPLOAD immediately
             status = "enabled" if new_auto else "disabled"
-            print(f"\n\033[32m✓ Auto-upload {status}!\033[0m")
+            print(f"\n{c('32')}✓ Auto-upload {status}!{c('0')}")
             log_message(f"Auto-upload {status}")
             input("\nPress Enter to continue...")
             return manage_credentials()  # Return to configuration menu
         else:
-            print(f"\n\033[33mNo saved configuration found\033[0m")
+            print(f"\n{c('33')}No saved configuration found{c('0')}")
             input("\nPress Enter to continue...")
         return False
     
     elif choice == '4':
-        saved_user, saved_pass, saved_auto, saved_port, saved_debug = load_credentials()
+        saved_user, saved_pass, saved_auto, saved_port, saved_debug, saved_color = load_credentials()
         if saved_user and saved_pass:
-            print(f"\n\033[36mDefault WSJT-X UDP port:  2333\033[0m")
-            print(f"\033[33mCurrent UDP port: {saved_port}\033[0m")
+            print(f"\n{c('36')}Default WSJT-X UDP port:  2333{c('0')}")
+            print(f"{c('33')}Current UDP port: {saved_port}{c('0')}")
             new_port = input("Enter new UDP port (1-65535, or press Enter to keep current): ").strip()
             
             # If empty, don't change
             if not new_port:
-                print(f"\n\033[36mUDP port unchanged ({saved_port})\033[0m")
+                print(f"\n{c('36')}UDP port unchanged ({saved_port}){c('0')}")
                 input("\nPress Enter to continue...")
                 return manage_credentials()  # Return to configuration menu
             # Check if it's a valid port number
@@ -363,53 +397,69 @@ def manage_credentials():
                 new_port_num = int(new_port)
                 # If same as current, don't change
                 if new_port_num == saved_port:
-                    print(f"\n\033[36mUDP port unchanged ({saved_port})\033[0m")
+                    print(f"\n{c('36')}UDP port unchanged ({saved_port}){c('0')}")
                     input("\nPress Enter to continue...")
                     return manage_credentials()  # Return to configuration menu
                 else:
-                    save_credentials(saved_user, saved_pass, saved_auto, new_port_num, saved_debug)
-                    print(f"\n\033[32m✓ UDP port changed to {new_port_num}! Please restart the script to apply.\033[0m")
+                    save_credentials(saved_user, saved_pass, saved_auto, new_port_num, saved_debug, saved_color)
+                    print(f"\n{c('32')}✓ UDP port changed to {new_port_num}! Please restart the script to apply.{c('0')}")
                     input("\nPress Enter to continue...")
                     return True  # Signal to restart
             else:
-                print(f"\n\033[31mInvalid port number. Must be between 1 and 65535.\033[0m")
+                print(f"\n{c('31')}Invalid port number. Must be between 1 and 65535.{c('0')}")
                 input("\nPress Enter to continue...")
                 return manage_credentials()  # Return to configuration menu
         else:
-            print(f"\n\033[33mNo saved configuration found\033[0m")
+            print(f"\n{c('33')}No saved configuration found{c('0')}")
             input("\nPress Enter to continue...")
         return False
     
     elif choice == '5':
-        saved_user, saved_pass, saved_auto, saved_port, saved_debug = load_credentials()
+        saved_user, saved_pass, saved_auto, saved_port, saved_debug, saved_color = load_credentials()
         if saved_user and saved_pass:
             new_debug = not saved_debug
-            save_credentials(saved_user, saved_pass, saved_auto, saved_port or 2333, new_debug)
+            save_credentials(saved_user, saved_pass, saved_auto, saved_port or 2333, new_debug, saved_color)
             DEBUG = new_debug  # Update global DEBUG immediately
             status = "enabled" if new_debug else "disabled"
-            print(f"\n\033[32m✓ Debug logging {status}!\033[0m")
+            print(f"\n{c('32')}✓ Debug logging {status}!{c('0')}")
             log_message(f"Debug logging {status}")
             input("\nPress Enter to continue...")
             return manage_credentials()  # Return to configuration menu
         else:
-            print(f"\n\033[33mNo saved configuration found\033[0m")
+            print(f"\n{c('33')}No saved configuration found{c('0')}")
             input("\nPress Enter to continue...")
         return False
     
     elif choice == '6':
-        confirm = input(f"\n\033[31mDelete saved configuration? (y/n): \033[0m").strip().lower()
-        if confirm in ['y', 'yes']:
-            try:
-                os.remove(CONFIG_FILE)
-                print(f"\033[32m✓ Configuration deleted! Please restart the script.\033[0m")
-                input("\nPress Enter to continue...")
-                return True  # Signal to restart
-            except:
-                print(f"\033[33mNo configuration file found\033[0m")
-                input("\nPress Enter to continue...")
+        saved_user, saved_pass, saved_auto, saved_port, saved_debug, saved_color = load_credentials()
+        if saved_user and saved_pass:
+            new_color = not saved_color
+            save_credentials(saved_user, saved_pass, saved_auto, saved_port or 2333, saved_debug, new_color)
+            COLOR_MODE = new_color  # Update global COLOR_MODE immediately
+            status = "enabled" if new_color else "disabled"
+            print(f"\n{c('32')}✓ Color mode {status}!{c('0')}")
+            log_message(f"Color mode {status}")
+            input("\nPress Enter to continue...")
+            return manage_credentials()  # Return to configuration menu
+        else:
+            print(f"\n{c('33')}No saved configuration found{c('0')}")
+            input("\nPress Enter to continue...")
         return False
     
     elif choice == '7':
+        confirm = input(f"\n{c('31')}Delete saved configuration? (y/n): {c('0')}").strip().lower()
+        if confirm in ['y', 'yes']:
+            try:
+                os.remove(CONFIG_FILE)
+                print(f"{c('32')}✓ Configuration deleted! Please restart the script.{c('0')}")
+                input("\nPress Enter to continue...")
+                return True  # Signal to restart
+            except:
+                print(f"{c('33')}No configuration file found{c('0')}")
+                input("\nPress Enter to continue...")
+        return False
+    
+    elif choice == '8':
         return False  # Return to monitoring
     
     return False
@@ -473,18 +523,36 @@ def draw_box(x, y, width, height, title=""):
     if width < 4 or height < 2:
         return
     
+    # Choose box characters based on COLOR_MODE
+    if COLOR_MODE:
+        # Unicode box-drawing characters
+        top_left = '┌'
+        top_right = '┐'
+        bottom_left = '└'
+        bottom_right = '┘'
+        horizontal = '─'
+        vertical = '│'
+    else:
+        # ASCII characters for vintage terminal compatibility
+        top_left = '+'
+        top_right = '+'
+        bottom_left = '+'
+        bottom_right = '+'
+        horizontal = '-'
+        vertical = '|'
+    
     # Top border
-    print(f"\033[{y};{x}H┌{'─' * (width-2)}┐", end='')
+    print(f"\033[{y};{x}H{top_left}{horizontal * (width-2)}{top_right}", end='')
     if title and len(title) + 4 < width:
         title_pos = x + 2
         print(f"\033[{y};{title_pos}H {title} ", end='')
     
     # Sides
     for i in range(1, height-1):
-        print(f"\033[{y+i};{x}H│{' ' * (width-2)}│", end='')
+        print(f"\033[{y+i};{x}H{vertical}{' ' * (width-2)}{vertical}", end='')
     
     # Bottom border
-    print(f"\033[{y+height-1};{x}H└{'─' * (width-2)}┘", end='')
+    print(f"\033[{y+height-1};{x}H{bottom_left}{horizontal * (width-2)}{bottom_right}", end='')
 
 def draw_status_screen(username):
     """Draw the main status screen"""
@@ -503,7 +571,7 @@ def draw_status_screen(username):
         
         # Minimum size check
         if width < 60 or height < 20:
-            print("\033[2J\033[1;1H\033[31mTerminal too small! Minimum 60x20\033[0m", end='')
+            print(f"\033[2J\033[1;1H{c('31')}Terminal too small! Minimum 60x20{c('0')}", end='')
             sys.stdout.flush()
             time.sleep(1)
             continue
@@ -512,11 +580,11 @@ def draw_status_screen(username):
         print("\033[2J", end='')
         
         # Header (full width)
-        print("\033[1;1H\033[44m\033[97m" + " " * width, end='')
+        print(f"\033[1;1H{c('44')}{c('97')}" + " " * width, end='')
         print("\033[1;3H WSJT-X to eQSL.cc Auto-Uploader v" + VERSION + " by K5JCJ", end='')
         website_str = "www.jaycrutti.com"
         website_pos = width - len(website_str) - 2
-        print(f"\033[1;{website_pos}H{website_str}\033[0m", end='')
+        print(f"\033[1;{website_pos}H{website_str}{c('0')}", end='')
         
         # Calculate layout based on terminal size
         half_width = width // 2
@@ -525,11 +593,11 @@ def draw_status_screen(username):
         status_width = half_width - 1
         draw_box(1, 2, status_width, 6, "STATUS")
         conn_text = f"Listening,UDP Port {UDP_PORT}"
-        print(f"\033[3;3HConnection: \033[32m{conn_text[:status_width-14]}\033[0m", end='')
-        print(f"\033[4;3HUsername:   \033[33m{username[:status_width-14]}\033[0m", end='')
-        print(f"\033[5;3HAuto-upload: \033[33m{'ON' if AUTO_UPLOAD else 'OFF'}\033[0m", end='')
-        print(f"\033[5;25H QSOs: \033[36m{contact_count}\033[0m", end='')
-        print(f"\033[6;3HLast Upload: \033[33m{upload_status[:status_width-15]}\033[0m", end='')
+        print(f"\033[3;3HConnection: {c('32')}{conn_text[:status_width-14]}{c('0')}", end='')
+        print(f"\033[4;3HUsername:   {c('33')}{username[:status_width-14]}{c('0')}", end='')
+        print(f"\033[5;3HAuto-upload: {c('33')}{'ON' if AUTO_UPLOAD else 'OFF'}{c('0')}", end='')
+        print(f"\033[5;25H QSOs: {c('36')}{contact_count}{c('0')}", end='')
+        print(f"\033[6;3HLast Upload: {c('33')}{upload_status[:status_width-15]}{c('0')}", end='')
         
         # Time/Date box (top right) - starts at row 2 (no blank line)
         time_box_x = half_width + 1
@@ -543,20 +611,20 @@ def draw_status_screen(username):
         col2_start = time_box_x + 23  # Fixed position for column 2
         
         # Row 1: Column Headers (centered - offset by 6 spaces)
-        print(f"\033[3;{col1_start + 6}H\033[1mUTC\033[0m", end='')
-        print(f"\033[3;{col2_start + 6}H\033[1mLOCAL\033[0m", end='')
+        print(f"\033[3;{col1_start + 6}H{c('1')}UTC{c('0')}", end='')
+        print(f"\033[3;{col2_start + 6}H{c('1')}LOCAL{c('0')}", end='')
         
         # Row 2: UTC Time and Local Time (hours and minutes only)
-        print(f"\033[4;{col1_start}HUTC Time: \033[36m{utc_now.strftime('%H:%M')}\033[0m", end='')
-        print(f"\033[4;{col2_start}HTime: \033[33m{local_now.strftime('%H:%M')}\033[0m", end='')
+        print(f"\033[4;{col1_start}HUTC Time: {c('36')}{utc_now.strftime('%H:%M')}{c('0')}", end='')
+        print(f"\033[4;{col2_start}HTime: {c('33')}{local_now.strftime('%H:%M')}{c('0')}", end='')
         
         # Row 3: UTC Date and Local Date
-        print(f"\033[5;{col1_start}HUTC Date: \033[36m{utc_now.strftime('%Y-%m-%d')}\033[0m", end='')
-        print(f"\033[5;{col2_start}HDate: \033[33m{local_now.strftime('%Y-%m-%d')}\033[0m", end='')
+        print(f"\033[5;{col1_start}HUTC Date: {c('36')}{utc_now.strftime('%Y-%m-%d')}{c('0')}", end='')
+        print(f"\033[5;{col2_start}HDate: {c('33')}{local_now.strftime('%Y-%m-%d')}{c('0')}", end='')
         
         # Row 4: UTC Day and Local Day
-        print(f"\033[6;{col1_start}HUTC Day:  \033[36m{utc_now.strftime('%A')}\033[0m", end='')
-        print(f"\033[6;{col2_start}HDay:  \033[33m{local_now.strftime('%A')}\033[0m", end='')
+        print(f"\033[6;{col1_start}HUTC Day:  {c('36')}{utc_now.strftime('%A')}{c('0')}", end='')
+        print(f"\033[6;{col2_start}HDay:  {c('33')}{local_now.strftime('%A')}{c('0')}", end='')
         
         # Last contact box (full width) - starts at row 8 (no blank line)
         last_contact_height = 6  # Fixed height: title + 4 content rows + bottom border
@@ -580,82 +648,82 @@ def draw_status_screen(username):
                 
                 # Row 1: Callsign, Mode, Band
                 if current_row < max_row:
-                    print(f"\033[{current_row};2H Callsign: \033[93m{last_contact['call']}\033[0m", end='')
+                    print(f"\033[{current_row};2H Callsign: {c('93')}{last_contact['call']}{c('0')}", end='')
                     
-                    mode_text = f"Mode:     \033[33m{last_contact['mode']}\033[0m"
+                    mode_text = f"Mode:     {c('33')}{last_contact['mode']}{c('0')}"
                     if col2_pos < max_x:
                         print(f"\033[{current_row};{col2_pos}H{mode_text[:col3_pos-col2_pos-1]}", end='')
                     
-                    band_text = f"Band: \033[33m{last_contact['band']}\033[0m"
+                    band_text = f"Band: {c('33')}{last_contact['band']}{c('0')}"
                     if col3_pos < max_x:
                         print(f"\033[{current_row};{col3_pos}H{band_text}", end='')
                     current_row += 1
                 
                 # Row 2: Grid, Freq, Date
                 if current_row < max_row:
-                    print(f"\033[{current_row};2H Grid:     \033[33m{last_contact['grid'] or 'N/A'}\033[0m", end='')
+                    print(f"\033[{current_row};2H Grid:     {c('33')}{last_contact['grid'] or 'N/A'}{c('0')}", end='')
                     
                     if last_contact['freq'] and col2_pos < max_x:
                         freq_formatted = format_frequency(last_contact['freq'])
-                        freq_text = f"Freq:     \033[33m{freq_formatted}\033[0m"
+                        freq_text = f"Freq:     {c('33')}{freq_formatted}{c('0')}"
                         print(f"\033[{current_row};{col2_pos}H{freq_text[:col3_pos-col2_pos-1]}", end='')
                     
                     # Date in third column
                     if last_contact['qso_date'] and col3_pos < max_x:
-                        date_text = f"\033[97mDate:\033[0m \033[33m{last_contact['qso_date']}\033[0m"
+                        date_text = f"{c('97')}Date:{c('0')} {c('33')}{last_contact['qso_date']}{c('0')}"
                         print(f"\033[{current_row};{col3_pos}H{date_text}", end='')
                     current_row += 1
                 
                 # Row 3: RST Sent, RST Rcvd, Time
                 if current_row < max_row:
                     if last_contact['rst_sent']:
-                        print(f"\033[{current_row};2H \033[97mRST Sent:\033[0m \033[33m{last_contact['rst_sent']}\033[0m", end='')
+                        print(f"\033[{current_row};2H {c('97')}RST Sent:{c('0')} {c('33')}{last_contact['rst_sent']}{c('0')}", end='')
                     
                     if last_contact['rst_rcvd'] and col2_pos < max_x:
-                        rst_r_text = f"RST Rcvd: \033[33m{last_contact['rst_rcvd']}\033[0m"
+                        rst_r_text = f"RST Rcvd: {c('33')}{last_contact['rst_rcvd']}{c('0')}"
                         print(f"\033[{current_row};{col2_pos}H{rst_r_text[:col3_pos-col2_pos-1]}", end='')
                     
                     # Time in third column
                     if last_contact['time_on'] and col3_pos < max_x:
-                        time_text = f"\033[97mTime:\033[0m \033[33m{last_contact['time_on']}\033[0m"
+                        time_text = f"{c('97')}Time:{c('0')} {c('33')}{last_contact['time_on']}{c('0')}"
                         print(f"\033[{current_row};{col3_pos}H{time_text}", end='')
                     current_row += 1
                 
                 # Row 4: Logged, Comment
                 if current_row < max_row:
                     ts = last_contact['timestamp'].strftime('%H:%M:%S UTC')
-                    print(f"\033[{current_row};2H \033[97mLogged:\033[0m   \033[36m{ts}\033[0m", end='')
+                    print(f"\033[{current_row};2H {c('97')}Logged:{c('0')}   {c('36')}{ts}{c('0')}", end='')
                     
                     # Comment in second and third columns
                     if last_contact.get('comment') and col2_pos < max_x:
-                        comment_text = f"Comment:  \033[32m{last_contact['comment']}\033[0m"
+                        comment_text = f"Comment:  {c('32')}{last_contact['comment']}{c('0')}"
                         print(f"\033[{current_row};{col2_pos}H{comment_text[:max_x-col2_pos]}", end='')
                     current_row += 1
             else:
                 # Narrow layout - stacked
-                print(f"\033[13;2H Call: \033[93m{last_contact['call']}\033[0m  Mode: \033[33m{last_contact['mode']}\033[0m  Band: \033[33m{last_contact['band']}\033[0m", end='')
-                print(f"\033[14;2H Grid: \033[33m{last_contact['grid'] or 'N/A'}\033[0m", end='')
+                print(f"\033[13;2H Call: {c('93')}{last_contact['call']}{c('0')}  Mode: {c('33')}{last_contact['mode']}{c('0')}  Band: {c('33')}{last_contact['band']}{c('0')}", end='')
+                print(f"\033[14;2H Grid: {c('33')}{last_contact['grid'] or 'N/A'}{c('0')}", end='')
                 if last_contact['freq']:
                     freq_formatted = format_frequency(last_contact['freq'])
-                    print(f"  Freq: \033[33m{freq_formatted}\033[0m", end='')
+                    print(f"  Freq: {c('33')}{freq_formatted}{c('0')}", end='')
                 
                 line = 15
                 if last_contact['rst_sent'] or last_contact['rst_rcvd']:
-                    print(f"\033[{line};2H RST: \033[33m{last_contact['rst_sent'] or 'N/A'}/{last_contact['rst_rcvd'] or 'N/A'}\033[0m", end='')
+                    print(f"\033[{line};2H RST: {c('33')}{last_contact['rst_sent'] or 'N/A'}/{last_contact['rst_rcvd'] or 'N/A'}{c('0')}", end='')
                     line += 1
                 
                 ts = last_contact['timestamp'].strftime('%H:%M:%S UTC')
-                print(f"\033[{line};2H Logged: \033[36m{ts}\033[0m", end='')
+                print(f"\033[{line};2H Logged: {c('36')}{ts}{c('0')}", end='')
                 line += 1
                 
                 # Display comment if present
                 if last_contact.get('comment') and line < 12 + last_contact_height - 1:
                     comment_display = last_contact['comment'][:width-5]
-                    print(f"\033[{line};3H Comment: \033[32m{comment_display}\033[0m", end='')
+                    print(f"\033[{line};3H Comment: {c('32')}{comment_display}{c('0')}", end='')
         else:
             center_y = 8 + last_contact_height // 2
             center_x = width // 2 - 8
-            print(f"\033[{center_y};{center_x}H \033[90mNo contacts yet\033[0m", end='')
+            print(f"\033[{center_y};{center_x}H {c('90')}No contacts yet{c('0')}", end='')
         
         # Recent contacts list (full width, remaining space) - starts immediately after LAST CONTACT
         recent_y = 8 + last_contact_height
@@ -668,13 +736,13 @@ def draw_status_screen(username):
             header_y = recent_y + 1
             if width >= 100:
                 # Wide layout with comments
-                print(f"\033[{header_y};2H \033[1mCall       Mode  Band   Grid    RST  Time    Comment\033[0m", end='')
+                print(f"\033[{header_y};2H {c('1')}Call       Mode  Band   Grid    RST  Time    Comment{c('0')}", end='')
             elif width >= 70:
                 # Medium layout with comments
-                print(f"\033[{header_y};2H \033[1mCall       Mode  Band   Grid    RST  Time    Comment\033[0m", end='')
+                print(f"\033[{header_y};2H {c('1')}Call       Mode  Band   Grid    RST  Time    Comment{c('0')}", end='')
             else:
                 # Narrow layout without comments
-                print(f"\033[{header_y};2H \033[1mCall       Mode  Band   Time\033[0m", end='')
+                print(f"\033[{header_y};2H {c('1')}Call       Mode  Band   Time{c('0')}", end='')
             
             # Contacts (as many as fit)
             max_contacts = min(10, recent_height - 3)
@@ -690,22 +758,22 @@ def draw_status_screen(username):
                     grid = (contact['grid'] or 'N/A')[:6].ljust(6)
                     rst = (contact['rst_rcvd'] or 'N/A')[:5].ljust(5)
                     comment = (contact.get('comment') or '')[:width-55]
-                    print(f"\033[{y};2H \033[93m{call}\033[0m   \033[33m{mode} {band} {grid}  {rst}{time_str}\033[0m  \033[32m{comment}\033[0m", end='')
+                    print(f"\033[{y};2H {c('93')}{call}{c('0')}   {c('33')}{mode} {band} {grid}  {rst}{time_str}{c('0')}  {c('32')}{comment}{c('0')}", end='')
                 elif width >= 70:
                     # Medium layout with comments
                     grid = (contact['grid'] or 'N/A')[:6].ljust(6)
                     rst = (contact['rst_rcvd'] or 'N/A')[:5].ljust(5)
                     comment = (contact.get('comment') or '')[:width-50]
-                    print(f"\033[{y};2H \033[93m{call}\033[0m   \033[33m{mode} {band} {grid}  {rst}{time_str}\033[0m  \033[32m{comment}\033[0m", end='')
+                    print(f"\033[{y};2H {c('93')}{call}{c('0')}   {c('33')}{mode} {band} {grid}  {rst}{time_str}{c('0')}  {c('32')}{comment}{c('0')}", end='')
                 else:
                     # Narrow layout without comments
-                    print(f"\033[{y};2H \033[93m{call}\033[0m   \033[33m{mode} {band} {time_str}\033[0m", end='')
+                    print(f"\033[{y};2H {c('93')}{call}{c('0')}   {c('33')}{mode} {band} {time_str}{c('0')}", end='')
         
         # Footer (full width)
         footer_y = height
-        print(f"\033[{footer_y};1H\033[44m\033[97m" + " " * width, end='')
+        print(f"\033[{footer_y};1H{c('44')}{c('97')}" + " " * width, end='')
         print(f"\033[{footer_y};3H Commands: (C)onfiguration | (Q)uit", end='')
-        print("\033[0m", end='')
+        print(f"{c('0')}", end='')
         
         sys.stdout.flush()
         time.sleep(1)
@@ -781,9 +849,9 @@ def handle_keyboard(username):
                     running = False
                     termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
                     print("\033[2J\033[?25h\033[1;1H")
-                    print("\n\033[33mShutting down...\033[0m")
-                    print(f"\033[32mTotal QSOs logged: {contact_count}\033[0m")
-                    print(f"\033[36mLog file: {LOG_FILE}\033[0m\n")
+                    print(f"\n{c('33')}Shutting down...{c('0')}")
+                    print(f"{c('32')}Total QSOs logged: {contact_count}{c('0')}")
+                    print(f"{c('36')}Log file: {LOG_FILE}{c('0')}\n")
                     print("73!\n")
                     os._exit(0)
                     
@@ -797,7 +865,7 @@ def handle_keyboard(username):
                     
                     if should_restart:
                         running = False
-                        print("\n\033[33mPlease restart the script: python3 wsjt-eqsl.py\033[0m\n")
+                        print(f"\n{c('33')}Please restart the script: python3 wsjt-eqsl.py{c('0')}\n")
                         os._exit(0)
                     
                     # Return to raw mode
@@ -809,22 +877,32 @@ def handle_keyboard(username):
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
 def main():
-    global UDP_PORT, DEBUG, AUTO_UPLOAD
+    global UDP_PORT, DEBUG, AUTO_UPLOAD, COLOR_MODE
     
+    # Load color configuration first (before any display)
+    saved_user, saved_pass, saved_auto, saved_port, saved_debug, saved_color = load_credentials()
+    if saved_user and saved_pass:
+        # Use saved color mode
+        COLOR_MODE = saved_color
+    # else COLOR_MODE stays at default (True)
+    
+    # Now display banner with correct color mode
     print("\033[2J\033[1;1H")
-    print("\033[36m╔════════════════════════════════════════════════╗\033[0m")
-    print(f"\033[36m║  WSJT-X to eQSL.cc Auto-Uploader v{VERSION}        ║\033[0m")
-    print("\033[36m║  Copyright 2025 John A. Crutti, Jr. K5JCJ      ║\033[0m")
-    print("\033[36m║  www.jaycrutti.com                             ║\033[0m")
-    print("\033[36m║  Comments? recstudio@gmail.com                 ║\033[0m")
-    print("\033[36m╚════════════════════════════════════════════════╝\033[0m\n")
+    b = box_chars()
+    print(f"{c('36')}{b['tl']}{b['h'] * 48}{b['tr']}{c('0')}")
+    print(f"{c('36')}{b['v']}  WSJT-X to eQSL.cc Auto-Uploader v{VERSION}        {b['v']}{c('0')}")
+    print(f"{c('36')}{b['v']}  Copyright 2025 John A. Crutti, Jr. K5JCJ      {b['v']}{c('0')}")
+    print(f"{c('36')}{b['v']}  www.jaycrutti.com                             {b['v']}{c('0')}")
+    print(f"{c('36')}{b['v']}  Comments? recstudio@gmail.com                 {b['v']}{c('0')}")
+    print(f"{c('36')}{b['bl']}{b['h'] * 48}{b['br']}{c('0')}\n")
     
-    username, password, auto_upload, udp_port, debug = get_credentials()
+    username, password, auto_upload, udp_port, debug, color_mode = get_credentials()
     UDP_PORT = udp_port  # Update global UDP_PORT
     DEBUG = debug  # Update global DEBUG
     AUTO_UPLOAD = auto_upload  # Update global AUTO_UPLOAD
+    COLOR_MODE = color_mode  # Update global COLOR_MODE (may have changed during setup)
     
-    print(f"\n\033[32m✓ Starting...\033[0m\n")
+    print(f"\n{c('32')}✓ Starting...{c('0')}\n")
     time.sleep(1)
     
     log_message("=== WSJT-X to eQSL.cc Uploader Started ===")
@@ -844,9 +922,9 @@ def main():
         draw_status_screen(username)
     except KeyboardInterrupt:
         print("\033[2J\033[?25h\033[1;1H")
-        print("\n\033[33mShutting down...\033[0m")
-        print(f"\033[32mTotal QSOs logged: {contact_count}\033[0m")
-        print(f"\033[36mLog file: {LOG_FILE}\033[0m\n")
+        print(f"\n{c('33')}Shutting down...{c('0')}")
+        print(f"{c('32')}Total QSOs logged: {contact_count}{c('0')}")
+        print(f"{c('36')}Log file: {LOG_FILE}{c('0')}\n")
         print("73!\n")
 
 if __name__ == '__main__':
