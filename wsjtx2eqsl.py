@@ -865,7 +865,7 @@ def handle_keyboard(username):
                     
                     if should_restart:
                         running = False
-                        print(f"\n{c('33')}Please restart the script: python3 wsjt-eqsl.py{c('0')}\n")
+                        print(f"\n{c('33')}Please restart the script: python3 wsjtx2eqsl.py{c('0')}\n")
                         os._exit(0)
                     
                     # Return to raw mode
