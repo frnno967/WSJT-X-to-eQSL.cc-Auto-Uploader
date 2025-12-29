@@ -19,8 +19,8 @@ WSJT-X to eQSL.cc Auto-Uploader is a Python-based tool for Amateur Radio that au
 - **Real-time Monitoring**: Live display of contact information including callsign, mode, band, frequency, grid square, RST reports, and comments
 - **Contact History**: View your last contacts in the recent contacts list
 - **Configuration Management**: Save your eQSL.cc credentials and settings for later use
-- **Retro BBS Style**: Simple and lightweight program interface inspired by retro BBS interfaces
-- **Upload Statistics**: Track total QSOs logged for the session 
+- **Retro Interface Style**: Simple and lightweight program interface inspired by retro BBS interfaces
+- **Vintage Terminal Compatability**: Configurable monochrome ASCII mode for displaying on vintage serial terminals 
 - **Error Handling**: Retry failed uploads with interactive error dialogs
 - **Debug Mode**: Extensive logging of debug information if needed
 
@@ -28,7 +28,7 @@ WSJT-X to eQSL.cc Auto-Uploader is a Python-based tool for Amateur Radio that au
 
 - Python 3.6 or higher
 - Linux operating system (tested on Ubuntu)
-- Terminal window with minimum size of 60x20 characters (80x24 or larger recommended)
+- Terminal window with minimum size of 80x24 characters
 - Active internet connection for eQSL.cc uploads
 - WSJT-X configured to broadcast logged ADIF data via UDP
 
@@ -128,8 +128,9 @@ Press **C** to access the configuration menu with these options:
 3. **Toggle auto-upload** - Enable/disable automatic uploading to eQSL.cc
 4. **Change UDP port** - Modify the UDP port for WSJT-X broadcasts
 5. **Toggle debug logging** - Save comprehensive debug information to log file
-6. **Delete saved configuration** - Remove stored credentials
-7. **Return to monitoring** - Go back to the main screen
+6. **Toggle color mode** - Disable color and use ASCII characters for all text
+7. **Delete saved configuration** - Remove stored credentials
+8. **Return to monitoring** - Go back to the main screen
 
 **Note:** Changes to credentials or UDP port require restarting the program to take effect.
 
@@ -224,7 +225,7 @@ This is useful for:
 
 ## Tips for Best Results
 
-1. **Terminal Size**: Use at least an 80x24 ANSI terminal for the best display experience
+1. **Terminal Size**: Use at least an 80x24 ANSI or ASCII terminal for the best display experience
 2. **Run in Background**: Consider running in a terminal multiplexer (tmux/screen) so you can keep it running while operating
 3. **Monitor Log File**: Check `wsjtx2eqsl.log` periodically for any issues
 4. **Auto-upload**: Enable auto-upload for hands-free eQSL logging
