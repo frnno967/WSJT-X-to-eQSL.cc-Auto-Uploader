@@ -205,22 +205,68 @@ def upload_to_eqsl(adif_data, username, password):
             log_message(f"Response Headers: {dict(response.headers)}")
             log_message(f"Response Text: {response.text}")
         
-        response_text = response.text.lower()
+        # Parse eQSL response - don't convert case yet, preserve original
+        response_text = response.text
         
-        if 'result: 1' in response_text or 'success' in response_text:
-            upload_status = "Upload OK"
-            log_message("Upload successful")
+        if DEBUG:
+            log_message(f"=== DEBUG: Response Parsing ===")
+            log_message(f"Response length: {len(response_text)} chars")
+            log_message(f"First 500 chars: {response_text[:500]}")
+        
+        # eQSL returns "Result: X out of Y records added" where X > 0 means success
+        # Use regex to extract the numbers reliably
+        result_pattern = r'Result:\s*(\d+)\s*out\s*of\s*(\d+)\s*records?\s*added'
+        result_match = re.search(result_pattern, response_text, re.IGNORECASE)
+        
+        if result_match:
+            added_count = int(result_match.group(1))
+            total_count = int(result_match.group(2))
+            
             if DEBUG:
-                log_message("=== DEBUG: Upload Success ===")
-            return True
+                log_message(f"=== DEBUG: Parsed Result ===")
+                log_message(f"Added: {added_count} out of {total_count}")
+            
+            if added_count > 0:
+                upload_status = "Upload OK"
+                log_message(f"Upload successful - {added_count} QSO(s) added")
+                if DEBUG:
+                    log_message("=== DEBUG: Upload Success ===")
+                return True
+            else:
+                # 0 QSOs added - likely a duplicate
+                upload_status = "Duplicate/Failed"
+                log_message(f"Upload rejected - {added_count} of {total_count} added (likely duplicate)")
+                if DEBUG:
+                    log_message("=== DEBUG: Upload Failed - Zero QSOs Added ===")
+                    log_message(f"Full response: {response.text}")
+                # Show error to user
+                show_upload_error(response.text, adif_data, username, password)
+                return False
         else:
-            upload_status = "Upload Failed"
-            log_message(f"Upload failed - {response.text[:100]}")
+            # Couldn't parse the standard format - try fallback detection
+            response_lower = response_text.lower()
+            
             if DEBUG:
-                log_message("=== DEBUG: Upload Failed ===")
-            # Show error to user
-            show_upload_error(response.text, adif_data, username, password)
-            return False
+                log_message("=== DEBUG: Standard format not found, trying fallback ===")
+            
+            # Fallback: look for success indicators
+            if ('qso' in response_lower or 'record' in response_lower) and 'added' in response_lower:
+                # Something was added, assume success
+                upload_status = "Upload OK (fallback)"
+                log_message("Upload appears successful (fallback detection)")
+                if DEBUG:
+                    log_message("=== DEBUG: Upload Success (Fallback Pattern) ===")
+                return True
+            else:
+                # Unknown response format
+                upload_status = "Upload Failed"
+                log_message(f"Upload failed - unexpected response: {response.text[:200]}")
+                if DEBUG:
+                    log_message("=== DEBUG: Upload Failed - Unknown Response Format ===")
+                    log_message(f"Full response: {response.text}")
+                # Show error to user
+                show_upload_error(response.text, adif_data, username, password)
+                return False
             
     except Exception as e:
         upload_status = f"Error: {str(e)[:20]}"
