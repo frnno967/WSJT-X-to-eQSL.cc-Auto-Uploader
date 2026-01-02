@@ -1,7 +1,5 @@
 # WSJT-X to eQSL.cc Auto-Uploader
 
----
-
 <img width="866" height="557" alt="image" src="https://github.com/user-attachments/assets/c17c1bb3-313d-4826-8ac6-896fb80b4b15" />
 
 ## Overview
