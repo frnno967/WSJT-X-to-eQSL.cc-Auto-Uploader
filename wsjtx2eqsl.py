@@ -634,9 +634,13 @@ def draw_status_screen(username):
     # Clear screen and hide cursor
     print("\033[2J\033[?25l", end='')
     
+    # Track previous state to detect changes
+    previous_state = None
+    
     while running:
         if show_menu:
             time.sleep(0.1)
+            previous_state = None  # Force redraw after returning from menu
             continue
             
         # Get current terminal size
@@ -648,6 +652,31 @@ def draw_status_screen(username):
             sys.stdout.flush()
             time.sleep(1)
             continue
+        
+        # Get current time (minute precision to avoid refreshing every second)
+        utc_now = datetime.now(timezone.utc)
+        local_now = datetime.now()
+        
+        # Create current state snapshot
+        current_state = {
+            'contact_count': contact_count,
+            'upload_status': upload_status,
+            'AUTO_UPLOAD': AUTO_UPLOAD,
+            'last_contact': last_contact.copy() if last_contact else None,
+            'recent_contacts': [c.copy() for c in recent_contacts],
+            'terminal_size': (width, height),
+            'utc_time': utc_now.strftime('%H:%M'),
+            'utc_date': utc_now.strftime('%Y-%m-%d'),
+            'local_time': local_now.strftime('%H:%M'),
+            'local_date': local_now.strftime('%Y-%m-%d')
+        }
+        
+        # Only redraw if something changed
+        if current_state == previous_state:
+            time.sleep(0.1)  # Short sleep, check again soon
+            continue
+        
+        previous_state = current_state
         
         # Clear screen
         print("\033[2J", end='')
@@ -849,7 +878,6 @@ def draw_status_screen(username):
         print(f"{c('0')}", end='')
         
         sys.stdout.flush()
-        time.sleep(1)
 
 def listen_udp(username, password, udp_port):
     """Listen for UDP packets from WSJT-X"""
