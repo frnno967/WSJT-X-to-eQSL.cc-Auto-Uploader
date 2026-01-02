@@ -195,8 +195,9 @@ The log file will be rotated regularly and limited to the most recent 1000 lines
 - Check `wsjtx2eqsl.log` for detailed error information
 
 ### Terminal display issues
-- Ensure your terminal is at least 60x20 characters (80x24 or larger recommended)
+- Ensure your terminal is at least 80x24 or larger recommended
 - Some terminal emulators may not display box-drawing characters correctly
+- Try disabling color mode
 - Try using a different terminal emulator if display issues persist
 
 ### Configuration file location
