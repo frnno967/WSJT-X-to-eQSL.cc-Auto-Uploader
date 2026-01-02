@@ -248,6 +248,7 @@ You can also use **Ctrl+C** to exit, though using **Q** is preferred for a clean
 
 **Version 1.1.0** (2025)
 - Adjusted formatting of fields in windows
+- Changed to a redraw only when data is updated instead of fixed 1 second redraw
 - Added monochrome ASCII output mode
 - Added log rotation feature
 - Fixed input validation of UDP config dialog
