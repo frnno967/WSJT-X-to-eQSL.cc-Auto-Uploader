@@ -93,6 +93,13 @@ def box_chars():
             'h': '=', 'v': '|'
         }
 
+def check_mark():
+    """Return checkmark character based on COLOR_MODE"""
+    if COLOR_MODE:
+        return '✓'  # Unicode checkmark
+    else:
+        return '*'  # ASCII asterisk for vintage terminals
+
 def get_credentials():
     """Get credentials from user or load from saved config"""
     # Try to load saved credentials first
@@ -100,7 +107,7 @@ def get_credentials():
     
     if saved_user and saved_pass:
         # Automatically use saved credentials
-        print(f"{c('32')}✓ Loaded saved credentials for: {saved_user}{c('0')}")
+        print(f"{c('32')}{check_mark()} Loaded saved credentials for: {saved_user}{c('0')}")
         print(f"{c('36')}(Press 'c' during operation to change configuration){c('0')}")
         return saved_user, saved_pass, saved_auto, saved_port, saved_debug, saved_color
     
@@ -197,7 +204,7 @@ def upload_to_eqsl(adif_data, username, password):
                 'EQSL_PSWD': password,
                 'ADIFData': adif_data
             },
-            timeout=30
+            timeout=(5, 30)  # (connect timeout, read timeout)
         )
         
         if DEBUG:
@@ -233,15 +240,24 @@ def upload_to_eqsl(adif_data, username, password):
                     log_message("=== DEBUG: Upload Success ===")
                 return True
             else:
-                # 0 QSOs added - likely a duplicate
-                upload_status = "Duplicate/Failed"
-                log_message(f"Upload rejected - {added_count} of {total_count} added (likely duplicate)")
-                if DEBUG:
-                    log_message("=== DEBUG: Upload Failed - Zero QSOs Added ===")
-                    log_message(f"Full response: {response.text}")
-                # Show error to user
-                show_upload_error(response.text, adif_data, username, password)
-                return False
+                # 0 QSOs added - check if it's a duplicate
+                if 'duplicate' in response_text.lower():
+                    # Duplicate means a previous attempt succeeded
+                    upload_status = "Upload OK"
+                    log_message(f"Marked as duplicate by eQSL - treating as success (previous attempt succeeded)")
+                    if DEBUG:
+                        log_message("=== DEBUG: Upload Success (Duplicate) ===")
+                    return True
+                else:
+                    # Genuine failure - 0 added for other reason
+                    upload_status = "Upload Failed"
+                    log_message(f"Upload failed - {added_count} of {total_count} added")
+                    if DEBUG:
+                        log_message("=== DEBUG: Upload Failed - Zero QSOs Added ===")
+                        log_message(f"Full response: {response.text}")
+                    # Show error to user
+                    show_upload_error(response.text, adif_data, username, password)
+                    return False
         else:
             # Couldn't parse the standard format - try fallback detection
             response_lower = response_text.lower()
@@ -269,15 +285,189 @@ def upload_to_eqsl(adif_data, username, password):
                 return False
             
     except Exception as e:
-        upload_status = f"Error: {str(e)[:20]}"
-        log_message(f"Upload error - {e}")
-        if DEBUG:
-            log_message(f"=== DEBUG: Upload Exception ===")
-            log_message(f"Exception Type: {type(e).__name__}")
-            log_message(f"Exception Details: {str(e)}")
-        # Show error to user
-        show_upload_error(str(e), adif_data, username, password)
-        return False
+        error_type = type(e).__name__
+        
+        # Check if this is a timeout error
+        is_timeout = 'timeout' in str(e).lower() or 'timed out' in str(e).lower()
+        
+        if is_timeout:
+            upload_status = "Retrying..."
+            log_message(f"Upload timeout after 10 seconds - {e}")
+            log_message("Automatically retrying in 10 seconds (upload may have succeeded on server)...")
+            
+            if DEBUG:
+                log_message(f"=== DEBUG: Upload Timeout - Auto Retry ===")
+                log_message(f"Exception Type: {error_type}")
+            
+            # Wait 10 seconds then retry automatically
+            time.sleep(10)
+            
+            if DEBUG:
+                log_message("=== DEBUG: Executing automatic retry ===")
+            
+            # Retry the upload
+            try:
+                response = requests.post(
+                    'https://www.eqsl.cc/qslcard/ImportADIF.cfm',
+                    data={
+                        'EQSL_USER': username,
+                        'EQSL_PSWD': password,
+                        'ADIFData': adif_data
+                    },
+                    timeout=(5, 30)  # (connect timeout, read timeout)
+                )
+                
+                if DEBUG:
+                    log_message(f"Retry Response Status Code: {response.status_code}")
+                    log_message(f"Retry Response Text: {response.text}")
+                
+                response_text = response.text
+                
+                # Parse the retry response
+                result_pattern = r'Result:\s*(\d+)\s*out\s*of\s*(\d+)\s*records?\s*added'
+                result_match = re.search(result_pattern, response_text, re.IGNORECASE)
+                
+                if result_match:
+                    added_count = int(result_match.group(1))
+                    
+                    if added_count > 0:
+                        # Success on retry
+                        upload_status = "Upload OK"
+                        log_message(f"Retry successful - {added_count} QSO(s) added")
+                        if DEBUG:
+                            log_message("=== DEBUG: Retry Success ===")
+                        return True
+                    elif 'duplicate' in response_text.lower():
+                        # Duplicate means the first attempt actually succeeded!
+                        upload_status = "Upload OK"
+                        log_message("Retry returned duplicate - original upload succeeded despite timeout")
+                        if DEBUG:
+                            log_message("=== DEBUG: Timeout Retry Confirmed Original Success ===")
+                        return True
+                    else:
+                        # Retry failed for other reason
+                        upload_status = "Upload Failed"
+                        log_message(f"Retry failed - {response.text[:200]}")
+                        if DEBUG:
+                            log_message("=== DEBUG: Retry Failed ===")
+                        show_upload_error(response.text, adif_data, username, password)
+                        return False
+                else:
+                    # Couldn't parse retry response
+                    upload_status = "Upload Failed"
+                    log_message(f"Retry gave unexpected response: {response.text[:200]}")
+                    if DEBUG:
+                        log_message("=== DEBUG: Retry Unexpected Response ===")
+                        log_message(f"Full response: {response.text}")
+                    show_upload_error(response.text, adif_data, username, password)
+                    return False
+                    
+            except Exception as retry_error:
+                # Check if retry also timed out
+                retry_is_timeout = 'timeout' in str(retry_error).lower() or 'timed out' in str(retry_error).lower()
+                
+                if retry_is_timeout:
+                    # Second attempt also timed out - try a third time
+                    upload_status = "Retrying (3/3)..."
+                    log_message(f"Second retry also timed out - {retry_error}")
+                    log_message("Attempting third and final retry in 10 seconds...")
+                    
+                    if DEBUG:
+                        log_message(f"=== DEBUG: Second Retry Timeout - Attempting Third ===")
+                        log_message(f"Retry Exception Type: {type(retry_error).__name__}")
+                    
+                    # Wait 10 seconds then try one more time
+                    time.sleep(10)
+                    
+                    if DEBUG:
+                        log_message("=== DEBUG: Executing third (final) retry ===")
+                    
+                    # Third retry attempt
+                    try:
+                        response = requests.post(
+                            'https://www.eqsl.cc/qslcard/ImportADIF.cfm',
+                            data={
+                                'EQSL_USER': username,
+                                'EQSL_PSWD': password,
+                                'ADIFData': adif_data
+                            },
+                            timeout=(5, 30)  # (connect timeout, read timeout)
+                        )
+                        
+                        if DEBUG:
+                            log_message(f"Third retry Response Status Code: {response.status_code}")
+                            log_message(f"Third retry Response Text: {response.text}")
+                        
+                        response_text = response.text
+                        
+                        # Parse the third retry response
+                        result_pattern = r'Result:\s*(\d+)\s*out\s*of\s*(\d+)\s*records?\s*added'
+                        result_match = re.search(result_pattern, response_text, re.IGNORECASE)
+                        
+                        if result_match:
+                            added_count = int(result_match.group(1))
+                            
+                            if added_count > 0:
+                                # Success on third retry
+                                upload_status = "Upload OK"
+                                log_message(f"Third retry successful - {added_count} QSO(s) added")
+                                if DEBUG:
+                                    log_message("=== DEBUG: Third Retry Success ===")
+                                return True
+                            elif 'duplicate' in response_text.lower():
+                                # Duplicate means an earlier attempt succeeded!
+                                upload_status = "Upload OK"
+                                log_message("Third retry returned duplicate - earlier upload succeeded despite timeouts")
+                                if DEBUG:
+                                    log_message("=== DEBUG: Third Retry Confirmed Earlier Success ===")
+                                return True
+                            else:
+                                # Third retry failed for other reason
+                                upload_status = "Upload Failed"
+                                log_message(f"Third retry failed - {response.text[:200]}")
+                                if DEBUG:
+                                    log_message("=== DEBUG: Third Retry Failed ===")
+                                show_upload_error(response.text, adif_data, username, password)
+                                return False
+                        else:
+                            # Couldn't parse third retry response
+                            upload_status = "Upload Failed"
+                            log_message(f"Third retry gave unexpected response: {response.text[:200]}")
+                            if DEBUG:
+                                log_message("=== DEBUG: Third Retry Unexpected Response ===")
+                                log_message(f"Full response: {response.text}")
+                            show_upload_error(response.text, adif_data, username, password)
+                            return False
+                            
+                    except Exception as third_retry_error:
+                        # All three attempts failed
+                        upload_status = "Upload Failed"
+                        log_message(f"All three retry attempts failed - {third_retry_error}")
+                        if DEBUG:
+                            log_message(f"=== DEBUG: Third Retry Exception ===")
+                            log_message(f"Third Retry Exception Type: {type(third_retry_error).__name__}")
+                        show_upload_error(f"Original: {str(e)}\n\nRetry 2: {str(retry_error)}\n\nRetry 3: {str(third_retry_error)}", adif_data, username, password)
+                        return False
+                else:
+                    # Retry failed for non-timeout reason
+                    upload_status = "Upload Failed"
+                    log_message(f"Retry failed - {retry_error}")
+                    if DEBUG:
+                        log_message(f"=== DEBUG: Retry Exception ===")
+                        log_message(f"Retry Exception Type: {type(retry_error).__name__}")
+                    show_upload_error(f"Original: {str(e)}\n\nRetry: {str(retry_error)}", adif_data, username, password)
+                    return False
+        else:
+            # Not a timeout - show error immediately
+            upload_status = f"Error: {str(e)[:20]}"
+            log_message(f"Upload error - {e}")
+            if DEBUG:
+                log_message(f"=== DEBUG: Upload Exception ===")
+                log_message(f"Exception Type: {error_type}")
+                log_message(f"Exception Details: {str(e)}")
+            # Show error to user
+            show_upload_error(str(e), adif_data, username, password)
+            return False
 
 def show_upload_error(error_msg, adif_data, username, password):
     """Show upload error and offer retry"""
@@ -432,7 +622,7 @@ def manage_credentials():
                 saved_user, saved_pass, saved_auto, saved_port, saved_debug, saved_color = load_credentials()
                 auto_upload = input("Enable auto-upload? (y/n): ").strip().lower() in ['y', 'yes']
                 save_credentials(username, password, auto_upload, saved_port or 2333, saved_debug, saved_color)
-                print(f"\n{c('32')}✓ Credentials updated! Please restart the script to use them.{c('0')}")
+                print(f"\n{c('32')}{check_mark()} Credentials updated! Please restart the script to use them.{c('0')}")
                 input("\nPress Enter to continue...")
                 return True  # Signal to restart
         return False
@@ -444,7 +634,7 @@ def manage_credentials():
             save_credentials(saved_user, saved_pass, new_auto, saved_port or 2333, saved_debug, saved_color)
             AUTO_UPLOAD = new_auto  # Update global AUTO_UPLOAD immediately
             status = "enabled" if new_auto else "disabled"
-            print(f"\n{c('32')}✓ Auto-upload {status}!{c('0')}")
+            print(f"\n{c('32')}{check_mark()} Auto-upload {status}!{c('0')}")
             log_message(f"Auto-upload {status}")
             input("\nPress Enter to continue...")
             return manage_credentials()  # Return to configuration menu
@@ -475,7 +665,7 @@ def manage_credentials():
                     return manage_credentials()  # Return to configuration menu
                 else:
                     save_credentials(saved_user, saved_pass, saved_auto, new_port_num, saved_debug, saved_color)
-                    print(f"\n{c('32')}✓ UDP port changed to {new_port_num}! Please restart the script to apply.{c('0')}")
+                    print(f"\n{c('32')}{check_mark()} UDP port changed to {new_port_num}! Please restart the script to apply.{c('0')}")
                     input("\nPress Enter to continue...")
                     return True  # Signal to restart
             else:
@@ -494,7 +684,7 @@ def manage_credentials():
             save_credentials(saved_user, saved_pass, saved_auto, saved_port or 2333, new_debug, saved_color)
             DEBUG = new_debug  # Update global DEBUG immediately
             status = "enabled" if new_debug else "disabled"
-            print(f"\n{c('32')}✓ Debug logging {status}!{c('0')}")
+            print(f"\n{c('32')}{check_mark()} Debug logging {status}!{c('0')}")
             log_message(f"Debug logging {status}")
             input("\nPress Enter to continue...")
             return manage_credentials()  # Return to configuration menu
@@ -510,7 +700,7 @@ def manage_credentials():
             save_credentials(saved_user, saved_pass, saved_auto, saved_port or 2333, saved_debug, new_color)
             COLOR_MODE = new_color  # Update global COLOR_MODE immediately
             status = "enabled" if new_color else "disabled"
-            print(f"\n{c('32')}✓ Color mode {status}!{c('0')}")
+            print(f"\n{c('32')}{check_mark()} Color mode {status}!{c('0')}")
             log_message(f"Color mode {status}")
             input("\nPress Enter to continue...")
             return manage_credentials()  # Return to configuration menu
@@ -524,7 +714,7 @@ def manage_credentials():
         if confirm in ['y', 'yes']:
             try:
                 os.remove(CONFIG_FILE)
-                print(f"{c('32')}✓ Configuration deleted! Please restart the script.{c('0')}")
+                print(f"{c('32')}{check_mark()} Configuration deleted! Please restart the script.{c('0')}")
                 input("\nPress Enter to continue...")
                 return True  # Signal to restart
             except:
@@ -1003,7 +1193,7 @@ def main():
     AUTO_UPLOAD = auto_upload  # Update global AUTO_UPLOAD
     COLOR_MODE = color_mode  # Update global COLOR_MODE (may have changed during setup)
     
-    print(f"\n{c('32')}✓ Starting...{c('0')}\n")
+    print(f"\n{c('32')}{check_mark()} Starting...{c('0')}\n")
     time.sleep(1)
     
     log_message("=== WSJT-X to eQSL.cc Uploader Started ===")
