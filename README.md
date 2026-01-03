@@ -249,7 +249,7 @@ You can also use **Ctrl+C** to exit, though using **Q** is preferred for a clean
 - Eliminated need to restart after changing some settings
 - Made debugging output more comprehensive
 - Moved log file to user's home directory with config file
-- Changes to make the program more robust with server lag
+- Changes to make the program more robust with server lag, added automatic upload retry
 
 **Version 1.0.0** (2025)
 - Initial release
